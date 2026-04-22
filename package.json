@@ -1,0 +1,15 @@
+{
+  "name": "ai-product-radar",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "docker compose up --build",
+    "down": "docker compose down",
+    "web:dev": "npm --workspace @ai-product-radar/web run dev",
+    "web:build": "npm --workspace @ai-product-radar/web run build",
+    "web:typecheck": "npm --workspace @ai-product-radar/web run typecheck"
+  }
+}

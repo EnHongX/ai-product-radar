@@ -1,0 +1,17 @@
+.git
+.env
+.env.*
+!.env.example
+node_modules
+.next
+__pycache__
+.venv
+dist
+build
+logs
+*.log
+*.zip
+*.tar.gz
+*.tgz
+*.pkg
+*.dmg

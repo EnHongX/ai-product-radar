@@ -1,0 +1,63 @@
+# Environment
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Logs and runtime
+logs/
+*.log
+tmp/
+temp/
+
+# Local data
+postgres_data/
+redis_data/
+*.sqlite
+*.sqlite3
+
+# Archives and installer packages
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.pkg
+*.dmg
+*.exe
+*.msi
+*.deb
+*.rpm
