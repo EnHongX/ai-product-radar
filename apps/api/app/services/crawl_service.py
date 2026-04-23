@@ -89,12 +89,12 @@ def crawl_rss_source(db: Session, source_id: int) -> CrawlResult:
             error_message="Source is disabled",
         )
     
-    if source.parse_strategy != "rss_feed":
+    if source.parse_strategy != "rss":
         return CrawlResult(
             success=False,
             articles_found=0,
             articles_created=0,
-            error_message=f"Unsupported parse strategy: {source.parse_strategy}. Only rss_feed is supported.",
+            error_message=f"Unsupported parse strategy: {source.parse_strategy}. Only rss is supported.",
         )
     
     crawl_log = CrawlLog(
