@@ -1,19 +1,23 @@
-import type { Metadata } from "next";
+"use client";
+
+import { LanguageProvider } from "@/i18n";
 import "./globals.css";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "AI Product Radar",
-  description: "Official AI product release tracking and review system"
+  description: "Official AI product release tracking and review system",
 };
 
 export default function RootLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <LanguageProvider>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }
