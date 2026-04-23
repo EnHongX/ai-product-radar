@@ -2,20 +2,16 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.db.session import SessionLocal
-from app.models.tables import ExtractionLog, ProductRelease, RawArticle, ReviewTask
+from app.models.tables import ExtractionLog, ProductRelease, RawArticle
 from app.services.extraction_service import (
-    BatchExtractionResult,
-    ExtractionResult,
     batch_extract_from_articles,
     extract_from_article,
     get_extraction_stats,
 )
-from app.worker.tasks import extract_article_task, batch_extract_task
 
 router = APIRouter(tags=["extractions"])
 
@@ -159,6 +155,7 @@ def extract_single_async(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
     
+    from app.worker.tasks import extract_article_task
     task = extract_article_task.delay(request.article_id)
     
     return TaskTriggerResponse(
@@ -176,6 +173,7 @@ def extract_batch_async(
     if not request.article_ids:
         raise HTTPException(status_code=400, detail="No article IDs provided")
     
+    from app.worker.tasks import batch_extract_task
     task = batch_extract_task.delay(request.article_ids)
     
     return TaskTriggerResponse(
