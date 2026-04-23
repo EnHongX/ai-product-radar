@@ -1,9 +1,8 @@
-"use client";
-
-import { LanguageProvider } from "@/i18n";
+import type { Metadata } from "next";
+import { ClientProvider } from "@/components/client-provider";
 import "./globals.css";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "AI Product Radar",
   description: "Official AI product release tracking and review system",
 };
@@ -16,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <LanguageProvider>{children}</LanguageProvider>
+        <ClientProvider>{children}</ClientProvider>
       </body>
     </html>
   );
