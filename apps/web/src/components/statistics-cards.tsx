@@ -35,7 +35,7 @@ export function StatisticsCards({ stats }: StatisticsCardsProps) {
   ];
 
   return (
-    <section className="mx-auto grid max-w-6xl gap-4 px-6 py-8 md:grid-cols-3">
+    <section className="mx-auto grid max-w-7xl gap-4 px-6 py-8 md:grid-cols-3">
       {items.map((item) => {
         const Icon = item.icon;
         return (

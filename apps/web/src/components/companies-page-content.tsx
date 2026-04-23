@@ -6,12 +6,13 @@ import { Plus, Edit2, Trash2 } from "lucide-react";
 import { AdminLayout } from "@/components/admin-layout";
 import { CompanyForm } from "@/components/company-form";
 import { useLanguage } from "@/i18n";
-import type { Company, CompanyCreate, CompanyUpdate } from "@/lib/api";
-import { fetchCompanies, createCompany, updateCompany, deleteCompany } from "@/lib/api";
+import type { Company, CompanyCreate, CompanyUpdate, CompanyType } from "@/lib/api";
+import { fetchCompanies, createCompany, updateCompany, deleteCompany, fetchCompanyTypes } from "@/lib/api";
 
 export function CompaniesPageContent() {
   const { t } = useLanguage();
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyTypes, setCompanyTypes] = useState<CompanyType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -22,8 +23,12 @@ export function CompaniesPageContent() {
   const loadCompanies = async () => {
     try {
       setLoading(true);
-      const data = await fetchCompanies();
-      setCompanies(data);
+      const [companiesData, typesData] = await Promise.all([
+        fetchCompanies(),
+        fetchCompanyTypes(true),
+      ]);
+      setCompanies(companiesData);
+      setCompanyTypes(typesData);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load companies");
@@ -180,6 +185,7 @@ export function CompaniesPageContent() {
       {showForm && (
         <CompanyForm
           company={editingCompany}
+          companyTypes={companyTypes}
           onSubmit={handleFormSubmit}
           onCancel={handleFormCancel}
           isSubmitting={isSubmitting}

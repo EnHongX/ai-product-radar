@@ -4,25 +4,38 @@ import { useState } from "react";
 import { X } from "lucide-react";
 
 import { useLanguage } from "@/i18n";
-import type { Source, SourceCreate, SourceUpdate, Company } from "@/lib/api";
+import type { Source, SourceCreate, SourceUpdate, Company, SourceType } from "@/lib/api";
 
 interface SourceFormProps {
   source?: Source | null;
   companies: Company[];
+  sourceTypes: SourceType[];
   onSubmit: (data: SourceCreate | SourceUpdate) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
 }
 
-export function SourceForm({ source, companies, onSubmit, onCancel, isSubmitting }: SourceFormProps) {
+export function SourceForm({ source, companies, sourceTypes, onSubmit, onCancel, isSubmitting }: SourceFormProps) {
   const { t } = useLanguage();
   const isEdit = !!source;
+
+  const getDefaultSourceType = (): string => {
+    if (source?.source_type) {
+      const matchedType = sourceTypes.find(
+        (t) => t.name === source.source_type || t.slug === source.source_type
+      );
+      if (matchedType) {
+        return matchedType.name;
+      }
+    }
+    return sourceTypes.length > 0 ? sourceTypes[0].name : "";
+  };
 
   const [formData, setFormData] = useState<SourceCreate | SourceUpdate>({
     company_id: source?.company_id || (companies.length > 0 ? companies[0].id : 0),
     name: source?.name || "",
     url: source?.url || "",
-    source_type: source?.source_type || "",
+    source_type: getDefaultSourceType(),
     parse_strategy: source?.parse_strategy || "",
     enabled: source?.enabled ?? true,
     crawl_interval_hours: source?.crawl_interval_hours || 24,
@@ -147,13 +160,11 @@ export function SourceForm({ source, companies, onSubmit, onCancel, isSubmitting
                 disabled={isSubmitting}
               >
                 <option value="">-- Select Type --</option>
-                <option value="blog">Blog</option>
-                <option value="rss">RSS Feed</option>
-                <option value="newsletter">Newsletter</option>
-                <option value="social">Social Media</option>
-                <option value="documentation">Documentation</option>
-                <option value="changelog">Changelog</option>
-                <option value="other">Other</option>
+                {sourceTypes.map((type) => (
+                  <option key={type.id} value={type.name}>
+                    {type.name}
+                  </option>
+                ))}
               </select>
             </div>
 

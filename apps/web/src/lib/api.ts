@@ -237,3 +237,181 @@ export async function deleteSource(id: number): Promise<void> {
     throw new Error(error.detail || "Failed to delete source");
   }
 }
+
+export type CompanyType = {
+  id: number;
+  name: string;
+  slug: string;
+  enabled: boolean;
+};
+
+export type CompanyTypeCreate = {
+  name: string;
+};
+
+export type CompanyTypeUpdate = {
+  name?: string;
+  enabled?: boolean;
+};
+
+export async function fetchCompanyTypes(enabled?: boolean): Promise<CompanyType[]> {
+  let url = `${API_BASE_URL}/api/company-types`;
+  if (enabled !== undefined) {
+    url += `?enabled=${enabled}`;
+  }
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch company types");
+  }
+
+  return response.json();
+}
+
+export async function fetchCompanyType(id: number): Promise<CompanyType> {
+  const response = await fetch(`${API_BASE_URL}/api/company-types/${id}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch company type");
+  }
+
+  return response.json();
+}
+
+export async function createCompanyType(data: CompanyTypeCreate): Promise<CompanyType> {
+  const response = await fetch(`${API_BASE_URL}/api/company-types`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to create company type");
+  }
+
+  return response.json();
+}
+
+export async function updateCompanyType(id: number, data: CompanyTypeUpdate): Promise<CompanyType> {
+  const response = await fetch(`${API_BASE_URL}/api/company-types/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to update company type");
+  }
+
+  return response.json();
+}
+
+export async function deleteCompanyType(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/company-types/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to delete company type");
+  }
+}
+
+export type SourceType = {
+  id: number;
+  name: string;
+  slug: string;
+  enabled: boolean;
+};
+
+export type SourceTypeCreate = {
+  name: string;
+};
+
+export type SourceTypeUpdate = {
+  name?: string;
+  enabled?: boolean;
+};
+
+export async function fetchSourceTypes(enabled?: boolean): Promise<SourceType[]> {
+  let url = `${API_BASE_URL}/api/source-types`;
+  if (enabled !== undefined) {
+    url += `?enabled=${enabled}`;
+  }
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch source types");
+  }
+
+  return response.json();
+}
+
+export async function fetchSourceType(id: number): Promise<SourceType> {
+  const response = await fetch(`${API_BASE_URL}/api/source-types/${id}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch source type");
+  }
+
+  return response.json();
+}
+
+export async function createSourceType(data: SourceTypeCreate): Promise<SourceType> {
+  const response = await fetch(`${API_BASE_URL}/api/source-types`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to create source type");
+  }
+
+  return response.json();
+}
+
+export async function updateSourceType(id: number, data: SourceTypeUpdate): Promise<SourceType> {
+  const response = await fetch(`${API_BASE_URL}/api/source-types/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to update source type");
+  }
+
+  return response.json();
+}
+
+export async function deleteSourceType(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/source-types/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to delete source type");
+  }
+}

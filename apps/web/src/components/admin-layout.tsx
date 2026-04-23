@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Database } from "lucide-react";
+import { Building2, Database, Tags, Layers } from "lucide-react";
 
 import { Header } from "@/components/header";
 import { useLanguage } from "@/i18n";
@@ -23,10 +23,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       active: pathname === "/admin" || pathname === "/admin/companies",
     },
     {
+      href: "/admin/company-types",
+      label: t.admin.companyTypes,
+      icon: Tags,
+      active: pathname === "/admin/company-types",
+    },
+    {
       href: "/admin/sources",
       label: t.admin.sources,
       icon: Database,
       active: pathname === "/admin/sources",
+    },
+    {
+      href: "/admin/source-types",
+      label: t.admin.sourceTypes,
+      icon: Layers,
+      active: pathname === "/admin/source-types",
     },
   ];
 
@@ -34,7 +46,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <main className="min-h-screen">
       <Header />
 
-      <div className="mx-auto flex max-w-6xl gap-6 px-6 py-8">
+      <div className="mx-auto flex max-w-7xl gap-6 px-6 py-8">
         <aside className="w-48 shrink-0">
           <nav className="space-y-1">
             {navItems.map((item) => {

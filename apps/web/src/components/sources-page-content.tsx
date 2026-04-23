@@ -6,13 +6,14 @@ import { Plus, Edit2, Trash2, Power, PowerOff, ExternalLink, MoreVertical } from
 import { AdminLayout } from "@/components/admin-layout";
 import { SourceForm } from "@/components/source-form";
 import { useLanguage } from "@/i18n";
-import type { Source, SourceCreate, SourceUpdate, Company, SourceDeleteCheck } from "@/lib/api";
-import { fetchSources, createSource, updateSource, deleteSource, checkSourceDelete, fetchCompanies } from "@/lib/api";
+import type { Source, SourceCreate, SourceUpdate, Company, SourceDeleteCheck, SourceType } from "@/lib/api";
+import { fetchSources, createSource, updateSource, deleteSource, checkSourceDelete, fetchCompanies, fetchSourceTypes } from "@/lib/api";
 
 export function SourcesPageContent() {
   const { t } = useLanguage();
   const [sources, setSources] = useState<Source[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [sourceTypes, setSourceTypes] = useState<SourceType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -27,12 +28,14 @@ export function SourcesPageContent() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [companiesData, sourcesData] = await Promise.all([
+      const [companiesData, sourcesData, typesData] = await Promise.all([
         fetchCompanies(),
         fetchSources(filterCompanyId, filterEnabled),
+        fetchSourceTypes(true),
       ]);
       setCompanies(companiesData);
       setSources(sourcesData);
+      setSourceTypes(typesData);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -354,6 +357,7 @@ export function SourcesPageContent() {
         <SourceForm
           source={editingSource}
           companies={companies}
+          sourceTypes={sourceTypes}
           onSubmit={handleFormSubmit}
           onCancel={handleFormCancel}
           isSubmitting={isSubmitting}
