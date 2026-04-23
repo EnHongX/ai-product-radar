@@ -1,12 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, X, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Eye, X, CheckCircle, XCircle, Loader2, AlertTriangle, Info, ChevronDown, ChevronRight } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin-layout";
 import { useLanguage } from "@/i18n";
 import type { CrawlLog, Company, Source } from "@/lib/api";
 import { fetchCrawlLogs, fetchCompanies, fetchSources } from "@/lib/api";
+
+interface LogBreakdown {
+  total_articles_found?: number;
+  successfully_created?: number;
+  skipped_reasons?: {
+    url_already_exists?: number;
+    content_hash_already_exists?: number;
+    total_skipped?: number;
+  };
+  failed_reasons?: {
+    parse_failed?: number;
+    database_operation_failed?: number;
+    total_failed?: number;
+  };
+  summary?: string;
+}
+
+interface ArticleRecord {
+  index: number;
+  title: string;
+  url: string;
+  status: string;
+  error_message?: string;
+  reason?: string;
+  process_status?: string;
+  process_error?: string;
+  process_reason?: string;
+  content_source?: string;
+  final_content_length?: number;
+  source_content_length?: number;
+  content_from_url?: boolean;
+  url_fetch_attempted?: boolean;
+  url_fetch_successful?: boolean;
+}
 
 export function CrawlLogsPageContent() {
   const { t } = useLanguage();
@@ -21,7 +55,8 @@ export function CrawlLogsPageContent() {
   const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined);
   
   const [selectedLog, setSelectedLog] = useState<CrawlLog | null>(null);
-  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [expandedArticles, setExpandedArticles] = useState<Set<number>>(new Set());
 
   const loadData = async () => {
     try {
@@ -47,14 +82,28 @@ export function CrawlLogsPageContent() {
     loadData();
   }, [filterCompanyId, filterSourceId, filterStatus]);
 
-  const handleViewError = (log: CrawlLog) => {
+  const handleViewDetail = (log: CrawlLog) => {
     setSelectedLog(log);
-    setShowErrorModal(true);
+    setShowDetailModal(true);
+    setExpandedArticles(new Set());
   };
 
-  const handleCloseError = () => {
-    setShowErrorModal(false);
+  const handleCloseDetail = () => {
+    setShowDetailModal(false);
     setSelectedLog(null);
+    setExpandedArticles(new Set());
+  };
+
+  const toggleArticle = (index: number) => {
+    setExpandedArticles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
   };
 
   const formatDate = (dateString: string | null) => {
@@ -104,6 +153,49 @@ export function CrawlLogsPageContent() {
             {status}
           </span>
         );
+    }
+  };
+
+  const getBreakdown = (log: CrawlLog): LogBreakdown | null => {
+    if (!log.log_metadata) return null;
+    const metadata = log.log_metadata as Record<string, unknown>;
+    return (metadata.breakdown || {}) as LogBreakdown;
+  };
+
+  const getSkippedCount = (log: CrawlLog): number => {
+    const breakdown = getBreakdown(log);
+    return breakdown?.skipped_reasons?.total_skipped || 0;
+  };
+
+  const getFailedCount = (log: CrawlLog): number => {
+    const breakdown = getBreakdown(log);
+    return breakdown?.failed_reasons?.total_failed || 0;
+  };
+
+  const getArticleRecords = (log: CrawlLog): ArticleRecord[] => {
+    if (!log.log_metadata) return [];
+    const metadata = log.log_metadata as Record<string, unknown>;
+    const records = metadata.parse_records;
+    return Array.isArray(records) ? records as ArticleRecord[] : [];
+  };
+
+  const getStatusDisplay = (record: ArticleRecord) => {
+    const status = record.process_status || record.status;
+    switch (status) {
+      case "created":
+        return { label: "Created", color: "text-green-600", bg: "bg-green-50" };
+      case "skipped_url_exists":
+        return { label: "Skipped (URL exists)", color: "text-yellow-600", bg: "bg-yellow-50" };
+      case "skipped_hash_exists":
+        return { label: "Skipped (Duplicate)", color: "text-yellow-600", bg: "bg-yellow-50" };
+      case "failed_parse":
+        return { label: "Failed (Parse)", color: "text-red-600", bg: "bg-red-50" };
+      case "failed_db":
+        return { label: "Failed (Database)", color: "text-red-600", bg: "bg-red-50" };
+      case "parsed":
+        return { label: "Parsed", color: "text-blue-600", bg: "bg-blue-50" };
+      default:
+        return { label: status || "Unknown", color: "text-gray-600", bg: "bg-gray-50" };
     }
   };
 
@@ -200,68 +292,98 @@ export function CrawlLogsPageContent() {
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink">{t.crawlLogs.status}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden md:table-cell">{t.crawlLogs.company}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink">{t.crawlLogs.source}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden sm:table-cell">{t.crawlLogs.articlesFound}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden sm:table-cell">{t.crawlLogs.articlesCreated}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden sm:table-cell">
+                    <div className="flex flex-col">
+                      <span>Found</span>
+                      <span className="text-xs text-muted">/ Created / Skipped / Failed</span>
+                    </div>
+                  </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden lg:table-cell">{t.crawlLogs.startedAt}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden lg:table-cell">{t.crawlLogs.finishedAt}</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-ink">{t.crawlLogs.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      {getStatusBadge(log.status)}
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-sm text-muted">{getCompanyName(log)}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-ink">{getSourceName(log)}</span>
-                        <span className="text-xs text-muted md:hidden">
-                          {getCompanyName(log)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-sm text-ink font-medium">{log.articles_found}</span>
-                    </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-sm text-ink font-medium">{log.articles_created}</span>
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      <span className="text-sm text-muted">{formatDate(log.started_at)}</span>
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      <span className="text-sm text-muted">{formatDate(log.finished_at)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {log.status === "failed" && log.error_message && (
+                {logs.map((log) => {
+                  const skipped = getSkippedCount(log);
+                  const failed = getFailedCount(log);
+                  const hasIssues = skipped > 0 || failed > 0;
+                  
+                  return (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        {getStatusBadge(log.status)}
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <span className="text-sm text-muted">{getCompanyName(log)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-ink">{getSourceName(log)}</span>
+                          <span className="text-xs text-muted md:hidden">
+                            {getCompanyName(log)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-ink">{log.articles_found}</span>
+                          <span className="text-sm text-muted">/</span>
+                          <span className="text-sm font-medium text-green-600">{log.articles_created}</span>
+                          {(skipped > 0 || failed > 0) && (
+                            <>
+                              <span className="text-sm text-muted">/</span>
+                              {skipped > 0 && (
+                                <span className="text-sm font-medium text-yellow-600">{skipped}</span>
+                              )}
+                              {skipped > 0 && failed > 0 && (
+                                <span className="text-sm text-muted">/</span>
+                              )}
+                              {failed > 0 && (
+                                <span className="text-sm font-medium text-red-600">{failed}</span>
+                              )}
+                            </>
+                          )}
+                          {hasIssues && (
+                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <span className="text-sm text-muted">{formatDate(log.started_at)}</span>
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <span className="text-sm text-muted">{formatDate(log.finished_at)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
                         <button
-                          onClick={() => handleViewError(log)}
-                          className="rounded p-1.5 text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
-                          title={t.crawlLogs.viewError}
+                          onClick={() => handleViewDetail(log)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-muted hover:text-ink hover:bg-gray-100 transition-colors"
+                          title="View details"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5" />
+                          Details
                         </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {showErrorModal && selectedLog && (
+      {showDetailModal && selectedLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
-              <h3 className="text-base font-semibold text-ink">{t.crawlLogs.errorDetail}</h3>
+              <div className="flex items-center gap-3">
+                <Info className="h-5 w-5 text-blue-600" />
+                <h3 className="text-base font-semibold text-ink">Crawl Log Details</h3>
+              </div>
               <button
-                onClick={handleCloseError}
+                onClick={handleCloseDetail}
                 className="rounded p-1.5 text-muted hover:text-ink hover:bg-gray-100 transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -269,54 +391,217 @@ export function CrawlLogsPageContent() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-5">
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted">{t.crawlLogs.source}</label>
+                    <label className="text-sm font-medium text-muted">Source</label>
                     <p className="text-ink mt-1">{getSourceName(selectedLog)}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted">{t.crawlLogs.status}</label>
+                    <label className="text-sm font-medium text-muted">Status</label>
                     <p className="mt-1">{getStatusBadge(selectedLog.status)}</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted">{t.crawlLogs.articlesFound}</label>
-                    <p className="text-ink mt-1">{selectedLog.articles_found}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="rounded-lg bg-blue-50 p-3">
+                    <label className="text-xs font-medium text-blue-700">Found</label>
+                    <p className="text-2xl font-bold text-blue-900">{selectedLog.articles_found}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted">{t.crawlLogs.articlesCreated}</label>
-                    <p className="text-ink mt-1">{selectedLog.articles_created}</p>
+                  <div className="rounded-lg bg-green-50 p-3">
+                    <label className="text-xs font-medium text-green-700">Created</label>
+                    <p className="text-2xl font-bold text-green-900">{selectedLog.articles_created}</p>
+                  </div>
+                  <div className="rounded-lg bg-yellow-50 p-3">
+                    <label className="text-xs font-medium text-yellow-700">Skipped</label>
+                    <p className="text-2xl font-bold text-yellow-900">{getSkippedCount(selectedLog)}</p>
+                  </div>
+                  <div className="rounded-lg bg-red-50 p-3">
+                    <label className="text-xs font-medium text-red-700">Failed</label>
+                    <p className="text-2xl font-bold text-red-900">{getFailedCount(selectedLog)}</p>
                   </div>
                 </div>
 
+                {getBreakdown(selectedLog) && (
+                  <div className="rounded-lg border border-line bg-gray-50 p-4">
+                    <label className="text-sm font-medium text-muted block mb-2">Summary</label>
+                    <p className="text-sm text-ink">
+                      {getBreakdown(selectedLog)?.summary}
+                    </p>
+                    {getBreakdown(selectedLog)?.skipped_reasons && (
+                      <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                        <span className="text-yellow-600">
+                          URL exists: {getBreakdown(selectedLog)?.skipped_reasons?.url_already_exists || 0}
+                        </span>
+                        <span className="text-yellow-600">
+                          Duplicate content: {getBreakdown(selectedLog)?.skipped_reasons?.content_hash_already_exists || 0}
+                        </span>
+                      </div>
+                    )}
+                    {getBreakdown(selectedLog)?.failed_reasons && (
+                      <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                        <span className="text-red-600">
+                          Parse failed: {getBreakdown(selectedLog)?.failed_reasons?.parse_failed || 0}
+                        </span>
+                        <span className="text-red-600">
+                          DB failed: {getBreakdown(selectedLog)?.failed_reasons?.database_operation_failed || 0}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted">{t.crawlLogs.startedAt}</label>
+                    <label className="text-sm font-medium text-muted">Started At</label>
                     <p className="text-ink mt-1">{formatDate(selectedLog.started_at)}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted">{t.crawlLogs.finishedAt}</label>
+                    <label className="text-sm font-medium text-muted">Finished At</label>
                     <p className="text-ink mt-1">{formatDate(selectedLog.finished_at)}</p>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-muted">{t.crawlLogs.errorMessage}</label>
-                  <div className="mt-1 p-4 bg-red-50 rounded-md border border-red-200 max-h-[400px] overflow-y-auto">
-                    <pre className="text-sm text-red-800 whitespace-pre-wrap break-words">
-                      {selectedLog.error_message}
-                    </pre>
+                {selectedLog.error_message && (
+                  <div>
+                    <label className="text-sm font-medium text-muted">{t.crawlLogs.errorMessage}</label>
+                    <div className="mt-1 p-4 bg-red-50 rounded-md border border-red-200 max-h-[200px] overflow-y-auto">
+                      <pre className="text-sm text-red-800 whitespace-pre-wrap break-words">
+                        {selectedLog.error_message}
+                      </pre>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {getArticleRecords(selectedLog).length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium text-muted block mb-3">
+                      Article Processing Details ({getArticleRecords(selectedLog).length} articles)
+                    </label>
+                    <div className="border border-line rounded-lg overflow-hidden">
+                      <div className="max-h-[500px] overflow-y-auto">
+                        {getArticleRecords(selectedLog).map((record, idx) => {
+                          const status = getStatusDisplay(record);
+                          const isExpanded = expandedArticles.has(idx);
+                          
+                          return (
+                            <div key={idx} className={`border-b border-line last:border-b-0 ${status.bg}`}>
+                              <button
+                                onClick={() => toggleArticle(idx)}
+                                className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-opacity-80 transition-colors"
+                              >
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-muted flex-shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-muted flex-shrink-0" />
+                                  )}
+                                  <span className="text-sm font-medium text-muted min-w-[2rem]">#{record.index + 1}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-ink truncate">{record.title || "Untitled"}</p>
+                                    <p className="text-xs text-muted truncate">{record.url}</p>
+                                  </div>
+                                </div>
+                                <span className={`text-xs font-medium px-2 py-1 rounded ${status.color} bg-white/80 ml-2 flex-shrink-0`}>
+                                  {status.label}
+                                </span>
+                              </button>
+                              
+                              {isExpanded && (
+                                <div className="px-4 pb-3 pl-11 border-t border-line border-opacity-50">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                    <div>
+                                      <label className="text-xs font-medium text-muted">Title</label>
+                                      <p className="text-sm text-ink break-words">{record.title || "Untitled"}</p>
+                                    </div>
+                                    <div>
+                                      <label className="text-xs font-medium text-muted">URL</label>
+                                      <p className="text-sm text-ink break-all">{record.url || "-"}</p>
+                                    </div>
+                                    <div>
+                                      <label className="text-xs font-medium text-muted">Status</label>
+                                      <p className={`text-sm ${status.color} font-medium`}>{status.label}</p>
+                                    </div>
+                                    <div>
+                                      <label className="text-xs font-medium text-muted">Content Source</label>
+                                      <p className="text-sm text-ink">
+                                        {record.content_from_url ? "Article URL" : "Feed/API"}
+                                        {record.content_source && (
+                                          <span className="text-muted"> ({record.content_source})</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                    {record.final_content_length !== undefined && (
+                                      <div>
+                                        <label className="text-xs font-medium text-muted">Final Content Length</label>
+                                        <p className="text-sm text-ink">{record.final_content_length.toLocaleString()} chars</p>
+                                      </div>
+                                    )}
+                                    {record.source_content_length !== undefined && (
+                                      <div>
+                                        <label className="text-xs font-medium text-muted">Source Content Length</label>
+                                        <p className="text-sm text-ink">{record.source_content_length.toLocaleString()} chars</p>
+                                      </div>
+                                    )}
+                                    <div>
+                                      <label className="text-xs font-medium text-muted">URL Fetch Attempted</label>
+                                      <p className="text-sm text-ink">{record.url_fetch_attempted ? "Yes" : "No"}</p>
+                                    </div>
+                                    {record.url_fetch_attempted && (
+                                      <div>
+                                        <label className="text-xs font-medium text-muted">URL Fetch Successful</label>
+                                        <p className={`text-sm ${record.url_fetch_successful ? "text-green-600" : "text-red-600"}`}>
+                                          {record.url_fetch_successful ? "Yes" : "No"}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {(record.reason || record.process_reason) && (
+                                    <div className="mt-3">
+                                      <label className="text-xs font-medium text-muted">Reason</label>
+                                      <p className="text-sm text-yellow-700 bg-yellow-50 px-3 py-2 rounded mt-1">
+                                        {record.reason || record.process_reason}
+                                      </p>
+                                    </div>
+                                  )}
+                                  
+                                  {(record.error_message || record.process_error) && (
+                                    <div className="mt-3">
+                                      <label className="text-xs font-medium text-muted">Error</label>
+                                      <div className="text-sm text-red-700 bg-red-50 px-3 py-2 rounded mt-1 overflow-x-auto">
+                                        <pre className="whitespace-pre-wrap break-words">
+                                          {record.error_message || record.process_error}
+                                        </pre>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedLog.log_metadata && (
+                  <div>
+                    <label className="text-sm font-medium text-muted block mb-2">Raw Metadata (JSON)</label>
+                    <div className="rounded-lg border border-line bg-gray-50 p-3 max-h-[300px] overflow-y-auto">
+                      <pre className="text-xs text-ink whitespace-pre-wrap break-words">
+                        {JSON.stringify(selectedLog.log_metadata, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="flex justify-end border-t border-line px-5 py-4">
               <button
-                onClick={handleCloseError}
+                onClick={handleCloseDetail}
                 className="inline-flex items-center gap-2 rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-ink hover:bg-gray-200 transition-colors"
               >
                 {t.crawlLogs.close}
