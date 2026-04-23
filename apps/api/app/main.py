@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.routers.companies import router as companies_router
 from app.routers.health import router as health_router
+from app.routers.sources import router as sources_router
 from app.routers.stats import router as stats_router
 
 
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(stats_router, prefix="/api")
     app.include_router(companies_router, prefix="/api")
+    app.include_router(sources_router, prefix="/api")
     return app
 
 
