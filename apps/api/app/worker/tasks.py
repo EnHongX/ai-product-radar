@@ -17,9 +17,11 @@ def crawl_source_task(self, source_id: int) -> dict:
             "success": result.success,
             "articles_found": result.articles_found,
             "articles_created": result.articles_created,
+            "articles_skipped": result.articles_skipped,
             "articles_failed": result.articles_failed,
             "error_message": result.error_message,
             "log_metadata": result.log_metadata,
+            "article_records": result.article_records,
         }
     finally:
         db.close()
