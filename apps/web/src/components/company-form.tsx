@@ -4,24 +4,37 @@ import { useState } from "react";
 import { X } from "lucide-react";
 
 import { useLanguage } from "@/i18n";
-import type { Company, CompanyCreate, CompanyUpdate } from "@/lib/api";
+import type { Company, CompanyCreate, CompanyUpdate, CompanyType } from "@/lib/api";
 
 interface CompanyFormProps {
   company?: Company | null;
+  companyTypes: CompanyType[];
   onSubmit: (data: CompanyCreate | CompanyUpdate) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
 }
 
-export function CompanyForm({ company, onSubmit, onCancel, isSubmitting }: CompanyFormProps) {
+export function CompanyForm({ company, companyTypes, onSubmit, onCancel, isSubmitting }: CompanyFormProps) {
   const { t } = useLanguage();
   const isEdit = !!company;
+
+  const getDefaultCompanyType = (): string => {
+    if (company?.company_type) {
+      const matchedType = companyTypes.find(
+        (t) => t.name === company.company_type || t.slug === company.company_type
+      );
+      if (matchedType) {
+        return matchedType.name;
+      }
+    }
+    return companyTypes.length > 0 ? companyTypes[0].name : "";
+  };
 
   const [formData, setFormData] = useState<CompanyCreate | CompanyUpdate>({
     name: company?.name || "",
     website: company?.website || "",
     country: company?.country || "",
-    company_type: company?.company_type || "",
+    company_type: getDefaultCompanyType(),
     logo_url: company?.logo_url || "",
     description: company?.description || "",
   });
@@ -95,14 +108,20 @@ export function CompanyForm({ company, onSubmit, onCancel, isSubmitting }: Compa
             <label className="block text-sm font-medium text-ink mb-1">
               {t.companies.companyType} <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
+            <select
               value={formData.company_type || ""}
               onChange={(e) => handleChange("company_type", e.target.value)}
               className="w-full rounded-md border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               required
               disabled={isSubmitting}
-            />
+            >
+              <option value="">-- Select Type --</option>
+              {companyTypes.map((type) => (
+                <option key={type.id} value={type.name}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

@@ -34,7 +34,7 @@ export function HomeContent({ health, stats }: HomeContentProps) {
       <Header />
 
       <section className="border-b border-line bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 md:flex-row md:items-end md:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-8 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-accent">
               {t.homepage.subtitle}
@@ -46,7 +46,7 @@ export function HomeContent({ health, stats }: HomeContentProps) {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-4 px-6 py-8 md:grid-cols-3">
+      <section className="mx-auto grid max-w-7xl gap-4 px-6 py-8 md:grid-cols-3">
         <div className="rounded-lg border border-line bg-white p-5">
           <div className="flex items-center gap-3">
             <Server className="h-5 w-5 text-accent" aria-hidden="true" />

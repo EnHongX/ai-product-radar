@@ -10,7 +10,7 @@ export function Header() {
 
   return (
     <header className="border-b border-line bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <Link href="/" className="text-lg font-semibold text-ink">
           AI Product Radar
         </Link>

@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Plus, Edit2, Trash2, Power, PowerOff, ExternalLink, MoreVertical } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Edit2, Trash2, Power, PowerOff, ExternalLink, MoreVertical, RefreshCw } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin-layout";
 import { SourceForm } from "@/components/source-form";
 import { useLanguage } from "@/i18n";
-import type { Source, SourceCreate, SourceUpdate, Company, SourceDeleteCheck } from "@/lib/api";
-import { fetchSources, createSource, updateSource, deleteSource, checkSourceDelete, fetchCompanies } from "@/lib/api";
+import type { Source, SourceCreate, SourceUpdate, Company, SourceDeleteCheck, SourceType, CrawlTriggerResponse } from "@/lib/api";
+import { fetchSources, createSource, updateSource, deleteSource, checkSourceDelete, fetchCompanies, fetchSourceTypes, triggerCrawl } from "@/lib/api";
 
 export function SourcesPageContent() {
   const { t } = useLanguage();
   const [sources, setSources] = useState<Source[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [sourceTypes, setSourceTypes] = useState<SourceType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -23,36 +24,30 @@ export function SourcesPageContent() {
   const [filterCompanyId, setFilterCompanyId] = useState<number | undefined>(undefined);
   const [filterEnabled, setFilterEnabled] = useState<boolean | undefined>(undefined);
   const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
+  const [crawlingSourceId, setCrawlingSourceId] = useState<number | null>(null);
 
-  const loadCompanies = async () => {
-    try {
-      const data = await fetchCompanies();
-      setCompanies(data);
-    } catch (err) {
-      console.error("Failed to load companies:", err);
-    }
-  };
-
-  const loadSources = useCallback(async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const data = await fetchSources(filterCompanyId, filterEnabled);
-      setSources(data);
+      const [companiesData, sourcesData, typesData] = await Promise.all([
+        fetchCompanies(),
+        fetchSources(filterCompanyId, filterEnabled),
+        fetchSourceTypes(true),
+      ]);
+      setCompanies(companiesData);
+      setSources(sourcesData);
+      setSourceTypes(typesData);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load sources");
+      setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadData();
   }, [filterCompanyId, filterEnabled]);
-
-  useEffect(() => {
-    loadCompanies();
-  }, []);
-
-  useEffect(() => {
-    loadSources();
-  }, [loadSources]);
 
   useEffect(() => {
     const handleClickOutside = () => setDropdownOpen(null);
@@ -73,12 +68,34 @@ export function SourcesPageContent() {
     setDropdownOpen(null);
   };
 
+  const handleCrawlClick = async (source: Source) => {
+    setDropdownOpen(null);
+    
+    if (!source.enabled) {
+      setError(t.sources.crawlDisabled);
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    
+    try {
+      setCrawlingSourceId(source.id);
+      await triggerCrawl(source.id);
+      setSuccessMessage(t.sources.crawlSuccess);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to trigger crawl");
+    } finally {
+      setCrawlingSourceId(null);
+    }
+  };
+
   const handleToggleStatus = async (source: Source) => {
     try {
       await updateSource(source.id, { enabled: !source.enabled });
       setSuccessMessage(t.sources.statusChangeSuccess);
       setTimeout(() => setSuccessMessage(null), 3000);
-      loadSources();
+      loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update source status");
     }
@@ -104,7 +121,7 @@ export function SourcesPageContent() {
       await deleteSource(source.id);
       setSuccessMessage(t.sources.deleteSuccess);
       setTimeout(() => setSuccessMessage(null), 3000);
-      loadSources();
+      loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete source");
     }
@@ -125,7 +142,7 @@ export function SourcesPageContent() {
       setTimeout(() => setSuccessMessage(null), 3000);
       setShowForm(false);
       setEditingSource(null);
-      loadSources();
+      loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save source");
     } finally {
@@ -136,11 +153,6 @@ export function SourcesPageContent() {
   const handleFormCancel = () => {
     setShowForm(false);
     setEditingSource(null);
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "-";
-    return new Date(dateString).toLocaleString();
   };
 
   const getCompanyName = (source: Source) => {
@@ -157,7 +169,7 @@ export function SourcesPageContent() {
   return (
     <AdminLayout>
       <div className="rounded-lg border border-line bg-white">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-line px-5 py-4 gap-4">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-base font-semibold text-ink">{t.sources.title}</h2>
           <button
             onClick={handleAddClick}
@@ -217,7 +229,16 @@ export function SourcesPageContent() {
         {loading ? (
           <div className="px-5 py-8 text-center text-muted">{t.common.loading}</div>
         ) : sources.length === 0 ? (
-          <div className="px-5 py-8 text-center text-muted">{t.sources.noSources}</div>
+          <div className="px-5 py-12 text-center">
+            <p className="text-muted mb-4">{t.sources.noSources}</p>
+            <button
+              onClick={handleAddClick}
+              className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              {t.sources.addSource}
+            </button>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -281,6 +302,20 @@ export function SourcesPageContent() {
                     <td className="px-4 py-3 text-right relative">
                       <div className="hidden sm:inline-flex items-center gap-1">
                         <button
+                          onClick={() => handleCrawlClick(source)}
+                          disabled={crawlingSourceId === source.id || !source.enabled}
+                          className={`rounded p-1.5 transition-colors ${
+                            crawlingSourceId === source.id
+                              ? "text-accent animate-spin"
+                              : !source.enabled
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-muted hover:text-blue-600 hover:bg-blue-50"
+                          }`}
+                          title={t.sources.crawl}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleToggleStatus(source)}
                           className={`rounded p-1.5 text-muted hover:bg-gray-100 transition-colors ${
                             source.enabled
@@ -322,6 +357,17 @@ export function SourcesPageContent() {
                         {dropdownOpen === source.id && (
                           <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-md shadow-lg border border-line z-10">
                             <button
+                              onClick={() => handleCrawlClick(source)}
+                              disabled={crawlingSourceId === source.id || !source.enabled}
+                              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
+                                !source.enabled
+                                  ? "text-gray-400 cursor-not-allowed"
+                                  : "text-ink hover:bg-gray-50"
+                              }`}
+                            >
+                              <RefreshCw className={`h-4 w-4 ${crawlingSourceId === source.id ? "animate-spin" : ""}`} /> {t.sources.crawl}
+                            </button>
+                            <button
                               onClick={() => handleToggleStatus(source)}
                               className="w-full text-left px-4 py-2 text-sm text-ink hover:bg-gray-50 flex items-center gap-2"
                             >
@@ -359,6 +405,7 @@ export function SourcesPageContent() {
         <SourceForm
           source={editingSource}
           companies={companies}
+          sourceTypes={sourceTypes}
           onSubmit={handleFormSubmit}
           onCancel={handleFormCancel}
           isSubmitting={isSubmitting}

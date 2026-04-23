@@ -17,6 +17,34 @@ class TimestampMixin:
     )
 
 
+class CompanyType(TimestampMixin, Base):
+    __tablename__ = "company_types"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_company_types_name"),
+        UniqueConstraint("slug", name="uq_company_types_slug"),
+        Index("ix_company_types_enabled", "enabled"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
+
+
+class SourceType(TimestampMixin, Base):
+    __tablename__ = "source_types"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_source_types_name"),
+        UniqueConstraint("slug", name="uq_source_types_slug"),
+        Index("ix_source_types_enabled", "enabled"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
+
+
 class Company(TimestampMixin, Base):
     __tablename__ = "companies"
     __table_args__ = (

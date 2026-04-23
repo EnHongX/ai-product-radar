@@ -237,3 +237,349 @@ export async function deleteSource(id: number): Promise<void> {
     throw new Error(error.detail || "Failed to delete source");
   }
 }
+
+export type CrawlTriggerResponse = {
+  task_id: string;
+  message: string;
+  can_crawl: boolean;
+};
+
+export async function triggerCrawl(id: number): Promise<CrawlTriggerResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/sources/${id}/crawl`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to trigger crawl");
+  }
+
+  return response.json();
+}
+
+export type CompanyType = {
+  id: number;
+  name: string;
+  slug: string;
+  enabled: boolean;
+};
+
+export type CompanyTypeCreate = {
+  name: string;
+};
+
+export type CompanyTypeUpdate = {
+  name?: string;
+  enabled?: boolean;
+};
+
+export async function fetchCompanyTypes(enabled?: boolean): Promise<CompanyType[]> {
+  let url = `${API_BASE_URL}/api/company-types`;
+  if (enabled !== undefined) {
+    url += `?enabled=${enabled}`;
+  }
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch company types");
+  }
+
+  return response.json();
+}
+
+export async function fetchCompanyType(id: number): Promise<CompanyType> {
+  const response = await fetch(`${API_BASE_URL}/api/company-types/${id}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch company type");
+  }
+
+  return response.json();
+}
+
+export async function createCompanyType(data: CompanyTypeCreate): Promise<CompanyType> {
+  const response = await fetch(`${API_BASE_URL}/api/company-types`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to create company type");
+  }
+
+  return response.json();
+}
+
+export async function updateCompanyType(id: number, data: CompanyTypeUpdate): Promise<CompanyType> {
+  const response = await fetch(`${API_BASE_URL}/api/company-types/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to update company type");
+  }
+
+  return response.json();
+}
+
+export type SourceType = {
+  id: number;
+  name: string;
+  slug: string;
+  enabled: boolean;
+};
+
+export type SourceTypeCreate = {
+  name: string;
+};
+
+export type SourceTypeUpdate = {
+  name?: string;
+  enabled?: boolean;
+};
+
+export async function fetchSourceTypes(enabled?: boolean): Promise<SourceType[]> {
+  let url = `${API_BASE_URL}/api/source-types`;
+  if (enabled !== undefined) {
+    url += `?enabled=${enabled}`;
+  }
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch source types");
+  }
+
+  return response.json();
+}
+
+export async function fetchSourceType(id: number): Promise<SourceType> {
+  const response = await fetch(`${API_BASE_URL}/api/source-types/${id}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch source type");
+  }
+
+  return response.json();
+}
+
+export async function createSourceType(data: SourceTypeCreate): Promise<SourceType> {
+  const response = await fetch(`${API_BASE_URL}/api/source-types`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to create source type");
+  }
+
+  return response.json();
+}
+
+export async function updateSourceType(id: number, data: SourceTypeUpdate): Promise<SourceType> {
+  const response = await fetch(`${API_BASE_URL}/api/source-types/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to update source type");
+  }
+
+  return response.json();
+}
+
+export type RawArticleSource = {
+  id: number;
+  name: string;
+};
+
+export type RawArticleCompany = {
+  id: number;
+  name: string;
+};
+
+export type RawArticle = {
+  id: number;
+  source_id: number;
+  title: string;
+  url: string;
+  published_at: string | null;
+  author: string | null;
+  fetched_at: string;
+  source?: RawArticleSource | null;
+  company?: RawArticleCompany | null;
+};
+
+export type RawArticleDetail = {
+  id: number;
+  source_id: number;
+  title: string;
+  url: string;
+  published_at: string | null;
+  author: string | null;
+  content: string | null;
+  content_hash: string;
+  fetched_at: string;
+  raw_metadata: Record<string, unknown> | null;
+  source?: RawArticleSource | null;
+  company?: RawArticleCompany | null;
+};
+
+export async function fetchRawArticles(
+  sourceId?: number,
+  companyId?: number,
+  limit?: number,
+  offset?: number
+): Promise<RawArticle[]> {
+  let url = `${API_BASE_URL}/api/raw-articles`;
+  const params = new URLSearchParams();
+  if (sourceId !== undefined) {
+    params.append("source_id", sourceId.toString());
+  }
+  if (companyId !== undefined) {
+    params.append("company_id", companyId.toString());
+  }
+  if (limit !== undefined) {
+    params.append("limit", limit.toString());
+  }
+  if (offset !== undefined) {
+    params.append("offset", offset.toString());
+  }
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch raw articles");
+  }
+
+  return response.json();
+}
+
+export async function fetchRawArticle(id: number): Promise<RawArticleDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/raw-articles/${id}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch raw article");
+  }
+
+  return response.json();
+}
+
+export async function deleteRawArticle(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/raw-articles/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to delete raw article");
+  }
+}
+
+export type CrawlLogSource = {
+  id: number;
+  name: string;
+};
+
+export type CrawlLogCompany = {
+  id: number;
+  name: string;
+};
+
+export type CrawlLog = {
+  id: number;
+  source_id: number;
+  started_at: string;
+  finished_at: string | null;
+  status: string;
+  articles_found: number;
+  articles_created: number;
+  error_message: string | null;
+  log_metadata: Record<string, unknown> | null;
+  created_at: string;
+  source?: CrawlLogSource | null;
+  company?: CrawlLogCompany | null;
+};
+
+export async function fetchCrawlLogs(
+  sourceId?: number,
+  companyId?: number,
+  status?: string,
+  limit?: number,
+  offset?: number
+): Promise<CrawlLog[]> {
+  let url = `${API_BASE_URL}/api/crawl-logs`;
+  const params = new URLSearchParams();
+  if (sourceId !== undefined) {
+    params.append("source_id", sourceId.toString());
+  }
+  if (companyId !== undefined) {
+    params.append("company_id", companyId.toString());
+  }
+  if (status !== undefined) {
+    params.append("status", status);
+  }
+  if (limit !== undefined) {
+    params.append("limit", limit.toString());
+  }
+  if (offset !== undefined) {
+    params.append("offset", offset.toString());
+  }
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch crawl logs");
+  }
+
+  return response.json();
+}
+
+export async function fetchCrawlLog(id: number): Promise<CrawlLog> {
+  const response = await fetch(`${API_BASE_URL}/api/crawl-logs/${id}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch crawl log");
+  }
+
+  return response.json();
+}

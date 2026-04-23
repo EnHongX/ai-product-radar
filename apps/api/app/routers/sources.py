@@ -7,7 +7,8 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import SessionLocal
-from app.models.tables import Source, RawArticle, ProductRelease, Company
+from app.models.tables import Source, RawArticle, ProductRelease, Company, CrawlLog
+from app.worker.tasks import crawl_source_task
 
 router = APIRouter(tags=["sources"])
 
@@ -268,3 +269,132 @@ def delete_source(source_id: int, db: Session = Depends(get_db)):
     db.delete(source)
     db.commit()
     return {"message": "Source deleted successfully"}
+
+
+class CrawlTriggerResponse(BaseModel):
+    task_id: str
+    message: str
+    can_crawl: bool
+
+
+@router.post("/sources/{source_id}/crawl", response_model=CrawlTriggerResponse)
+def trigger_crawl(source_id: int, db: Session = Depends(get_db)):
+    source = db.execute(select(Source).where(Source.id == source_id)).scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+    
+    if not source.enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot crawl: source is disabled. Please enable it first.",
+        )
+    
+    valid_strategies = ["rss", "html", "json", "custom"]
+    if source.parse_strategy not in valid_strategies:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot crawl: parse strategy '{source.parse_strategy}' is not supported. "
+                   f"Supported strategies: {', '.join(valid_strategies)}",
+        )
+    
+    task = crawl_source_task.delay(source_id)
+    
+    return CrawlTriggerResponse(
+        task_id=str(task.id),
+        message="Crawl task has been queued",
+        can_crawl=True,
+    )
+
+
+class CrawlLogResponse(BaseModel):
+    id: int
+    source_id: int
+    started_at: datetime
+    finished_at: datetime | None
+    status: str
+    articles_found: int
+    articles_created: int
+    error_message: str | None
+    log_metadata: dict | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RawArticleListResponse(BaseModel):
+    id: int
+    source_id: int
+    title: str
+    url: str
+    published_at: datetime | None
+    author: str | None
+    fetched_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RawArticleDetailResponse(BaseModel):
+    id: int
+    source_id: int
+    title: str
+    url: str
+    published_at: datetime | None
+    author: str | None
+    content: str | None
+    content_hash: str
+    fetched_at: datetime
+    raw_metadata: dict | None
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/sources/{source_id}/crawl-logs", response_model=list[CrawlLogResponse])
+def get_source_crawl_logs(
+    source_id: int,
+    limit: int = Query(20, ge=1, le=100, description="Number of logs to return"),
+    db: Session = Depends(get_db),
+):
+    source = db.execute(select(Source).where(Source.id == source_id)).scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+    
+    logs = db.execute(
+        select(CrawlLog)
+        .where(CrawlLog.source_id == source_id)
+        .order_by(CrawlLog.started_at.desc())
+        .limit(limit)
+    ).scalars().all()
+    
+    return logs
+
+
+@router.get("/sources/{source_id}/articles", response_model=list[RawArticleListResponse])
+def get_source_articles(
+    source_id: int,
+    limit: int = Query(50, ge=1, le=200, description="Number of articles to return"),
+    db: Session = Depends(get_db),
+):
+    source = db.execute(select(Source).where(Source.id == source_id)).scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+    
+    articles = db.execute(
+        select(RawArticle)
+        .where(RawArticle.source_id == source_id)
+        .order_by(RawArticle.published_at.desc(), RawArticle.fetched_at.desc())
+        .limit(limit)
+    ).scalars().all()
+    
+    return articles
+
+
+@router.get("/raw-articles/{article_id}", response_model=RawArticleDetailResponse)
+def get_raw_article(article_id: int, db: Session = Depends(get_db)):
+    article = db.execute(select(RawArticle).where(RawArticle.id == article_id)).scalar_one_or_none()
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    
+    return article
