@@ -238,6 +238,25 @@ export async function deleteSource(id: number): Promise<void> {
   }
 }
 
+export type CrawlTriggerResponse = {
+  task_id: string;
+  message: string;
+  can_crawl: boolean;
+};
+
+export async function triggerCrawl(id: number): Promise<CrawlTriggerResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/sources/${id}/crawl`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to trigger crawl");
+  }
+
+  return response.json();
+}
+
 export type CompanyType = {
   id: number;
   name: string;

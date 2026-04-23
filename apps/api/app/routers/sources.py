@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import SessionLocal
 from app.models.tables import Source, RawArticle, ProductRelease, Company
+from app.worker.tasks import crawl_source_task
 
 router = APIRouter(tags=["sources"])
 
@@ -268,3 +269,36 @@ def delete_source(source_id: int, db: Session = Depends(get_db)):
     db.delete(source)
     db.commit()
     return {"message": "Source deleted successfully"}
+
+
+class CrawlTriggerResponse(BaseModel):
+    task_id: str
+    message: str
+    can_crawl: bool
+
+
+@router.post("/sources/{source_id}/crawl", response_model=CrawlTriggerResponse)
+def trigger_crawl(source_id: int, db: Session = Depends(get_db)):
+    source = db.execute(select(Source).where(Source.id == source_id)).scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+    
+    if not source.enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot crawl: source is disabled. Please enable it first.",
+        )
+    
+    if source.parse_strategy != "rss_feed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot crawl: only 'rss_feed' parse strategy is supported. Current strategy: {source.parse_strategy}",
+        )
+    
+    task = crawl_source_task.delay(source_id)
+    
+    return CrawlTriggerResponse(
+        task_id=str(task.id),
+        message="Crawl task has been queued",
+        can_crawl=True,
+    )

@@ -88,6 +88,10 @@ export const zh = {
     newSource: "新建来源",
     selectCompany: "选择公司",
     urlDuplicateError: "该URL已存在",
+    crawl: "抓取",
+    crawlSuccess: "抓取任务已启动",
+    crawlDisabled: "已禁用的来源无法抓取",
+    crawlNotRss: "仅支持RSS来源抓取",
   },
   phases: {
     phase1: "阶段1",

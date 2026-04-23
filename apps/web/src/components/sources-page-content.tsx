@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Power, PowerOff, ExternalLink, MoreVertical } from "lucide-react";
+import { Plus, Edit2, Trash2, Power, PowerOff, ExternalLink, MoreVertical, RefreshCw } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin-layout";
 import { SourceForm } from "@/components/source-form";
 import { useLanguage } from "@/i18n";
-import type { Source, SourceCreate, SourceUpdate, Company, SourceDeleteCheck, SourceType } from "@/lib/api";
-import { fetchSources, createSource, updateSource, deleteSource, checkSourceDelete, fetchCompanies, fetchSourceTypes } from "@/lib/api";
+import type { Source, SourceCreate, SourceUpdate, Company, SourceDeleteCheck, SourceType, CrawlTriggerResponse } from "@/lib/api";
+import { fetchSources, createSource, updateSource, deleteSource, checkSourceDelete, fetchCompanies, fetchSourceTypes, triggerCrawl } from "@/lib/api";
 
 export function SourcesPageContent() {
   const { t } = useLanguage();
@@ -24,6 +24,7 @@ export function SourcesPageContent() {
   const [filterCompanyId, setFilterCompanyId] = useState<number | undefined>(undefined);
   const [filterEnabled, setFilterEnabled] = useState<boolean | undefined>(undefined);
   const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
+  const [crawlingSourceId, setCrawlingSourceId] = useState<number | null>(null);
 
   const loadData = async () => {
     try {
@@ -65,6 +66,34 @@ export function SourcesPageContent() {
     setEditingSource(source);
     setShowForm(true);
     setDropdownOpen(null);
+  };
+
+  const handleCrawlClick = async (source: Source) => {
+    setDropdownOpen(null);
+    
+    if (!source.enabled) {
+      setError(t.sources.crawlDisabled);
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    
+    if (source.parse_strategy !== "rss_feed") {
+      setError(t.sources.crawlNotRss);
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    
+    try {
+      setCrawlingSourceId(source.id);
+      await triggerCrawl(source.id);
+      setSuccessMessage(t.sources.crawlSuccess);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to trigger crawl");
+    } finally {
+      setCrawlingSourceId(null);
+    }
   };
 
   const handleToggleStatus = async (source: Source) => {
@@ -279,6 +308,20 @@ export function SourcesPageContent() {
                     <td className="px-4 py-3 text-right relative">
                       <div className="hidden sm:inline-flex items-center gap-1">
                         <button
+                          onClick={() => handleCrawlClick(source)}
+                          disabled={crawlingSourceId === source.id || !source.enabled || source.parse_strategy !== "rss_feed"}
+                          className={`rounded p-1.5 transition-colors ${
+                            crawlingSourceId === source.id
+                              ? "text-accent animate-spin"
+                              : !source.enabled || source.parse_strategy !== "rss_feed"
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-muted hover:text-blue-600 hover:bg-blue-50"
+                          }`}
+                          title={t.sources.crawl}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleToggleStatus(source)}
                           className={`rounded p-1.5 text-muted hover:bg-gray-100 transition-colors ${
                             source.enabled
@@ -319,6 +362,17 @@ export function SourcesPageContent() {
                         
                         {dropdownOpen === source.id && (
                           <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-md shadow-lg border border-line z-10">
+                            <button
+                              onClick={() => handleCrawlClick(source)}
+                              disabled={crawlingSourceId === source.id || !source.enabled || source.parse_strategy !== "rss_feed"}
+                              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
+                                !source.enabled || source.parse_strategy !== "rss_feed"
+                                  ? "text-gray-400 cursor-not-allowed"
+                                  : "text-ink hover:bg-gray-50"
+                              }`}
+                            >
+                              <RefreshCw className={`h-4 w-4 ${crawlingSourceId === source.id ? "animate-spin" : ""}`} /> {t.sources.crawl}
+                            </button>
                             <button
                               onClick={() => handleToggleStatus(source)}
                               className="w-full text-left px-4 py-2 text-sm text-ink hover:bg-gray-50 flex items-center gap-2"

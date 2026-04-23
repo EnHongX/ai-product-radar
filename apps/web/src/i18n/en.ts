@@ -88,6 +88,10 @@ export const en = {
     newSource: "New Source",
     selectCompany: "Select Company",
     urlDuplicateError: "This URL already exists",
+    crawl: "Crawl",
+    crawlSuccess: "Crawl task started",
+    crawlDisabled: "Cannot crawl disabled source",
+    crawlNotRss: "Only RSS sources can be crawled",
   },
   phases: {
     phase1: "Phase 1",
