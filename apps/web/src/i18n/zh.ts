@@ -177,6 +177,14 @@ export const zh = {
     filterBySource: "按来源筛选",
     allCompanies: "全部公司",
     allSources: "全部来源",
+    selectAll: "全选",
+    deselectAll: "取消全选",
+    selected: "已选择",
+    items: "项",
+    batchDelete: "批量删除",
+    confirmBatchDelete: "确定要删除选中的 {count} 篇文章吗？",
+    batchDeleteSuccess: "成功删除 {count} 篇文章",
+    noSelection: "请先选择要删除的文章",
   },
   crawlLogs: {
     title: "抓取记录",
@@ -201,5 +209,6 @@ export const zh = {
     viewError: "查看错误详情",
     errorDetail: "错误详情",
     close: "关闭",
+    actions: "操作",
   },
 };
