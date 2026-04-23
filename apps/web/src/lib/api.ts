@@ -97,3 +97,143 @@ export async function deleteCompany(id: number): Promise<void> {
     throw new Error(error.detail || "Failed to delete company");
   }
 }
+
+export type SourceCompany = {
+  id: number;
+  name: string;
+};
+
+export type Source = {
+  id: number;
+  company_id: number;
+  name: string;
+  url: string;
+  source_type: string;
+  parse_strategy: string;
+  enabled: boolean;
+  crawl_interval_hours: number;
+  last_crawled_at: string | null;
+  created_at: string;
+  updated_at: string;
+  company?: SourceCompany | null;
+};
+
+export type SourceCreate = {
+  company_id: number;
+  name: string;
+  url: string;
+  source_type: string;
+  parse_strategy: string;
+  enabled?: boolean;
+  crawl_interval_hours?: number;
+};
+
+export type SourceUpdate = {
+  company_id?: number;
+  name?: string;
+  url?: string;
+  source_type?: string;
+  parse_strategy?: string;
+  enabled?: boolean;
+  crawl_interval_hours?: number;
+};
+
+export type SourceDeleteCheck = {
+  can_delete: boolean;
+  raw_articles_count: number;
+  product_releases_count: number;
+  message: string;
+};
+
+export async function fetchSources(companyId?: number, enabled?: boolean): Promise<Source[]> {
+  let url = `${API_BASE_URL}/api/sources`;
+  const params = new URLSearchParams();
+  if (companyId !== undefined) {
+    params.append("company_id", companyId.toString());
+  }
+  if (enabled !== undefined) {
+    params.append("enabled", enabled.toString());
+  }
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch sources");
+  }
+
+  return response.json();
+}
+
+export async function fetchSource(id: number): Promise<Source> {
+  const response = await fetch(`${API_BASE_URL}/api/sources/${id}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch source");
+  }
+
+  return response.json();
+}
+
+export async function checkSourceDelete(id: number): Promise<SourceDeleteCheck> {
+  const response = await fetch(`${API_BASE_URL}/api/sources/${id}/delete-check`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to check source delete status");
+  }
+
+  return response.json();
+}
+
+export async function createSource(data: SourceCreate): Promise<Source> {
+  const response = await fetch(`${API_BASE_URL}/api/sources`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to create source");
+  }
+
+  return response.json();
+}
+
+export async function updateSource(id: number, data: SourceUpdate): Promise<Source> {
+  const response = await fetch(`${API_BASE_URL}/api/sources/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to update source");
+  }
+
+  return response.json();
+}
+
+export async function deleteSource(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/sources/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to delete source");
+  }
+}
