@@ -1,4 +1,5 @@
 import hashlib
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -7,7 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
-from app.core.logging import get_logger
 from app.models.tables import (
     ExtractionLog,
     ProductRelease,
@@ -15,7 +15,7 @@ from app.models.tables import (
     ReviewTask,
 )
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass
