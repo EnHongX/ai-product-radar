@@ -1,11 +1,10 @@
 import hashlib
-import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -14,7 +13,6 @@ from app.models.tables import (
     ProductRelease,
     RawArticle,
     ReviewTask,
-    Source,
 )
 
 logger = get_logger(__name__)
