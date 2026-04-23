@@ -289,10 +289,12 @@ def trigger_crawl(source_id: int, db: Session = Depends(get_db)):
             detail="Cannot crawl: source is disabled. Please enable it first.",
         )
     
-    if source.parse_strategy != "rss":
+    valid_strategies = ["rss", "html", "json", "custom"]
+    if source.parse_strategy not in valid_strategies:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot crawl: only 'rss' parse strategy is supported. Current strategy: {source.parse_strategy}",
+            detail=f"Cannot crawl: parse strategy '{source.parse_strategy}' is not supported. "
+                   f"Supported strategies: {', '.join(valid_strategies)}",
         )
     
     task = crawl_source_task.delay(source_id)

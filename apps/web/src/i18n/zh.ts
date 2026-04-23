@@ -95,7 +95,7 @@ export const zh = {
     crawl: "抓取",
     crawlSuccess: "抓取任务已启动",
     crawlDisabled: "已禁用的来源无法抓取",
-    crawlNotRss: "仅支持RSS来源抓取",
+    crawlNotRss: "不支持的解析策略",
   },
   phases: {
     phase1: "阶段1",

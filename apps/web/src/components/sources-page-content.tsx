@@ -77,12 +77,6 @@ export function SourcesPageContent() {
       return;
     }
     
-    if (source.parse_strategy !== "rss") {
-      setError(t.sources.crawlNotRss);
-      setTimeout(() => setError(null), 5000);
-      return;
-    }
-    
     try {
       setCrawlingSourceId(source.id);
       await triggerCrawl(source.id);
@@ -309,11 +303,11 @@ export function SourcesPageContent() {
                       <div className="hidden sm:inline-flex items-center gap-1">
                         <button
                           onClick={() => handleCrawlClick(source)}
-                          disabled={crawlingSourceId === source.id || !source.enabled || source.parse_strategy !== "rss"}
+                          disabled={crawlingSourceId === source.id || !source.enabled}
                           className={`rounded p-1.5 transition-colors ${
                             crawlingSourceId === source.id
                               ? "text-accent animate-spin"
-                              : !source.enabled || source.parse_strategy !== "rss"
+                              : !source.enabled
                               ? "text-gray-300 cursor-not-allowed"
                               : "text-muted hover:text-blue-600 hover:bg-blue-50"
                           }`}
@@ -364,9 +358,9 @@ export function SourcesPageContent() {
                           <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-md shadow-lg border border-line z-10">
                             <button
                               onClick={() => handleCrawlClick(source)}
-                              disabled={crawlingSourceId === source.id || !source.enabled || source.parse_strategy !== "rss"}
+                              disabled={crawlingSourceId === source.id || !source.enabled}
                               className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
-                                !source.enabled || source.parse_strategy !== "rss"
+                                !source.enabled
                                   ? "text-gray-400 cursor-not-allowed"
                                   : "text-ink hover:bg-gray-50"
                               }`}

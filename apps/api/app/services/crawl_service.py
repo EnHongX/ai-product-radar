@@ -1,21 +1,36 @@
 from datetime import datetime, timezone
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, Callable, Optional
 import hashlib
+import json
+import re
 
 import feedparser
 import httpx
+from bs4 import BeautifulSoup
 from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from app.models.tables import Source, RawArticle, CrawlLog
 
 
+class ArticleParseResult(NamedTuple):
+    success: bool
+    article_data: dict[str, Any] | None
+    error_message: str | None = None
+
+
 class CrawlResult(NamedTuple):
     success: bool
     articles_found: int
     articles_created: int
+    articles_failed: int = 0
     error_message: str | None = None
     log_metadata: dict | None = None
+
+
+def build_content_hash(title: str, content: str) -> str:
+    content_for_hash = f"{title}|{content}"
+    return hashlib.sha256(content_for_hash.encode("utf-8")).hexdigest()
 
 
 def parse_rss_entry(entry: Any, source_url: str) -> dict[str, Any]:
@@ -43,11 +58,11 @@ def parse_rss_entry(entry: Any, source_url: str) -> dict[str, Any]:
         except (ValueError, TypeError):
             pass
     
-    content_for_hash = f"{title}|{content}"
-    content_hash = hashlib.sha256(content_for_hash.encode("utf-8")).hexdigest()
+    content_hash = build_content_hash(title, content)
     
     raw_metadata = {
         "source_url": source_url,
+        "parse_strategy": "rss",
         "entry_id": entry.get("id"),
         "tags": [tag.get("term") for tag in entry.get("tags", [])] if entry.get("tags") else None,
     }
@@ -63,6 +78,166 @@ def parse_rss_entry(entry: Any, source_url: str) -> dict[str, Any]:
     }
 
 
+def parse_html_scraper(html_content: str, source_url: str, index: int) -> dict[str, Any]:
+    soup = BeautifulSoup(html_content, "html.parser")
+    
+    title = ""
+    title_tag = soup.find("title")
+    if title_tag:
+        title = title_tag.get_text(strip=True)
+    if not title:
+        h1_tags = soup.find_all("h1")
+        if h1_tags:
+            title = h1_tags[0].get_text(strip=True)
+    if not title:
+        title = f"Article #{index + 1} from {source_url}"
+    
+    url = source_url
+    
+    author = ""
+    author_meta = soup.find("meta", {"name": ["author", "article:author"]})
+    if author_meta and author_meta.get("content"):
+        author = author_meta.get("content", "")
+    
+    published_at = None
+    published_meta = soup.find("meta", {"name": ["article:published_time", "date", "pubdate"]})
+    if published_meta and published_meta.get("content"):
+        try:
+            published_str = published_meta.get("content", "")
+            from dateutil import parser as date_parser
+            published_at = date_parser.isoparse(published_str)
+        except Exception:
+            pass
+    
+    content = ""
+    article_tag = soup.find("article")
+    if article_tag:
+        content = article_tag.get_text(separator="\n", strip=True)
+    if not content:
+        main_tag = soup.find("main")
+        if main_tag:
+            content = main_tag.get_text(separator="\n", strip=True)
+    if not content:
+        body_tag = soup.find("body")
+        if body_tag:
+            content = body_tag.get_text(separator="\n", strip=True)
+    
+    content_hash = build_content_hash(title, content)
+    
+    raw_metadata = {
+        "source_url": source_url,
+        "parse_strategy": "html",
+        "article_index": index,
+    }
+    
+    return {
+        "title": title[:512],
+        "url": url,
+        "published_at": published_at,
+        "author": author[:255] if author else None,
+        "content": content if content else None,
+        "content_hash": content_hash,
+        "raw_metadata": raw_metadata,
+    }
+
+
+def parse_json_api_item(item: dict[str, Any], source_url: str, index: int) -> dict[str, Any]:
+    title = item.get("title", "") or item.get("name", "") or item.get("headline", "") or f"Item #{index + 1}"
+    
+    url = item.get("url", "") or item.get("link", "") or item.get("permalink", "") or source_url
+    
+    author = item.get("author", "") or item.get("creator", "") or item.get("writer", "")
+    if isinstance(author, dict):
+        author = author.get("name", "")
+    
+    published_at = None
+    published_fields = ["published_at", "date", "created_at", "publish_date", "timestamp", "published"]
+    for field in published_fields:
+        if item.get(field):
+            try:
+                from dateutil import parser as date_parser
+                published_at = date_parser.isoparse(str(item[field]))
+                break
+            except Exception:
+                continue
+    
+    content = item.get("content", "") or item.get("body", "") or item.get("description", "") or item.get("summary", "")
+    if isinstance(content, dict):
+        content = json.dumps(content, ensure_ascii=False)
+    elif not isinstance(content, str):
+        content = str(content)
+    
+    content_hash = build_content_hash(str(title), str(content))
+    
+    raw_metadata = {
+        "source_url": source_url,
+        "parse_strategy": "json",
+        "item_index": index,
+        "raw_item": item,
+    }
+    
+    return {
+        "title": str(title)[:512],
+        "url": str(url),
+        "published_at": published_at,
+        "author": str(author)[:255] if author else None,
+        "content": str(content) if content else None,
+        "content_hash": content_hash,
+        "raw_metadata": raw_metadata,
+    }
+
+
+def parse_custom_script(output: str, source_url: str) -> list[dict[str, Any]]:
+    articles = []
+    
+    try:
+        parsed = json.loads(output)
+        
+        if isinstance(parsed, list):
+            for index, item in enumerate(parsed):
+                if isinstance(item, dict):
+                    article = parse_json_api_item(item, source_url, index)
+                    if article["raw_metadata"]:
+                        article["raw_metadata"]["parse_strategy"] = "custom"
+                    articles.append(article)
+        
+        elif isinstance(parsed, dict):
+            if "articles" in parsed and isinstance(parsed["articles"], list):
+                for index, item in enumerate(parsed["articles"]):
+                    if isinstance(item, dict):
+                        article = parse_json_api_item(item, source_url, index)
+                        if article["raw_metadata"]:
+                            article["raw_metadata"]["parse_strategy"] = "custom"
+                        articles.append(article)
+            elif "items" in parsed and isinstance(parsed["items"], list):
+                for index, item in enumerate(parsed["items"]):
+                    if isinstance(item, dict):
+                        article = parse_json_api_item(item, source_url, index)
+                        if article["raw_metadata"]:
+                            article["raw_metadata"]["parse_strategy"] = "custom"
+                        articles.append(article)
+            else:
+                article = parse_json_api_item(parsed, source_url, 0)
+                if article["raw_metadata"]:
+                    article["raw_metadata"]["parse_strategy"] = "custom"
+                articles.append(article)
+                
+    except json.JSONDecodeError:
+        lines = output.strip().split("\n")
+        for index, line in enumerate(lines):
+            try:
+                item = json.loads(line)
+                if isinstance(item, dict):
+                    article = parse_json_api_item(item, source_url, index)
+                    if article["raw_metadata"]:
+                        article["raw_metadata"]["parse_strategy"] = "custom"
+                    articles.append(article)
+            except json.JSONDecodeError:
+                continue
+    
+    return articles
+
+
 def fetch_rss_feed(url: str) -> feedparser.FeedParserDict:
     with httpx.Client(follow_redirects=True, timeout=30.0) as client:
         response = client.get(url)
@@ -70,7 +245,174 @@ def fetch_rss_feed(url: str) -> feedparser.FeedParserDict:
         return feedparser.parse(response.content)
 
 
-def crawl_rss_source(db: Session, source_id: int) -> CrawlResult:
+def fetch_html_page(url: str) -> str:
+    with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+        response = client.get(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        })
+        response.raise_for_status()
+        return response.text
+
+
+def fetch_json_api(url: str) -> dict[str, Any] | list[Any]:
+    with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+        response = client.get(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept": "application/json"
+        })
+        response.raise_for_status()
+        return response.json()
+
+
+def process_articles(
+    db: Session,
+    source_id: int,
+    articles_data: list[dict[str, Any]],
+    fetched_at: datetime
+) -> tuple[int, int, int]:
+    articles_found = len(articles_data)
+    articles_created = 0
+    articles_failed = 0
+    
+    if articles_found == 0:
+        return articles_found, articles_created, articles_failed
+    
+    urls = [article["url"] for article in articles_data]
+    existing_records = db.execute(
+        select(RawArticle.url, RawArticle.content_hash)
+        .where(RawArticle.url.in_(urls))
+    ).all()
+    existing_urls = {r[0] for r in existing_records}
+    existing_hashes = {r[1] for r in existing_records}
+    
+    for article_data in articles_data:
+        try:
+            if article_data["url"] in existing_urls:
+                continue
+            
+            if article_data["content_hash"] in existing_hashes:
+                continue
+            
+            raw_article = RawArticle(
+                source_id=source_id,
+                title=article_data["title"][:512],
+                url=article_data["url"],
+                published_at=article_data["published_at"],
+                author=article_data["author"][:255] if article_data["author"] else None,
+                content=article_data["content"],
+                content_hash=article_data["content_hash"],
+                fetched_at=fetched_at,
+                raw_metadata=article_data["raw_metadata"],
+            )
+            db.add(raw_article)
+            
+            existing_urls.add(article_data["url"])
+            existing_hashes.add(article_data["content_hash"])
+            articles_created += 1
+            
+        except Exception:
+            articles_failed += 1
+    
+    return articles_found, articles_created, articles_failed
+
+
+def crawl_source_by_strategy(
+    db: Session,
+    source: Source,
+    strategy: str
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    log_metadata: dict[str, Any] = {}
+    articles_data: list[dict[str, Any]] = []
+    
+    if strategy == "rss":
+        feed = fetch_rss_feed(source.url)
+        
+        if feed.bozo and feed.bozo_exception:
+            raise Exception(f"RSS parsing error: {feed.bozo_exception}")
+        
+        entries = feed.entries or []
+        log_metadata["feed_title"] = feed.feed.get("title") if feed.feed else None
+        log_metadata["entry_count"] = len(entries)
+        
+        for entry in entries:
+            try:
+                article = parse_rss_entry(entry, source.url)
+                articles_data.append(article)
+            except Exception:
+                continue
+                
+    elif strategy == "html":
+        html_content = fetch_html_page(source.url)
+        
+        soup = BeautifulSoup(html_content, "html.parser")
+        article_tags = soup.find_all("article")
+        
+        if article_tags:
+            log_metadata["article_tags_found"] = len(article_tags)
+            for index, article_tag in enumerate(article_tags):
+                try:
+                    article_html = str(article_tag)
+                    article = parse_html_scraper(article_html, source.url, index)
+                    
+                    link = article_tag.find("a", href=True)
+                    if link:
+                        href = link.get("href", "")
+                        if href and not href.startswith("#"):
+                            if href.startswith("/"):
+                                from urllib.parse import urljoin
+                                href = urljoin(source.url, href)
+                            article["url"] = href
+                    
+                    articles_data.append(article)
+                except Exception:
+                    continue
+        else:
+            article = parse_html_scraper(html_content, source.url, 0)
+            articles_data.append(article)
+            log_metadata["single_page_extracted"] = True
+            
+    elif strategy == "json":
+        json_data = fetch_json_api(source.url)
+        log_metadata["response_type"] = "list" if isinstance(json_data, list) else "object"
+        
+        items = []
+        if isinstance(json_data, list):
+            items = json_data
+        elif isinstance(json_data, dict):
+            if "articles" in json_data and isinstance(json_data["articles"], list):
+                items = json_data["articles"]
+            elif "items" in json_data and isinstance(json_data["items"], list):
+                items = json_data["items"]
+            elif "data" in json_data and isinstance(json_data["data"], list):
+                items = json_data["data"]
+            elif "posts" in json_data and isinstance(json_data["posts"], list):
+                items = json_data["posts"]
+            else:
+                items = [json_data]
+        
+        log_metadata["items_count"] = len(items)
+        
+        for index, item in enumerate(items):
+            if isinstance(item, dict):
+                try:
+                    article = parse_json_api_item(item, source.url, index)
+                    articles_data.append(article)
+                except Exception:
+                    continue
+                    
+    elif strategy == "custom":
+        log_metadata["strategy"] = "custom"
+        log_metadata["status"] = "not_implemented_yet"
+        log_metadata["message"] = "Custom script execution is not implemented yet. Placeholder for future implementation."
+        articles_data = []
+        
+    else:
+        raise ValueError(f"Unknown parse strategy: {strategy}")
+    
+    return articles_data, log_metadata
+
+
+def crawl_source(db: Session, source_id: int) -> CrawlResult:
     source = db.execute(select(Source).where(Source.id == source_id)).scalar_one_or_none()
     
     if not source:
@@ -78,6 +420,7 @@ def crawl_rss_source(db: Session, source_id: int) -> CrawlResult:
             success=False,
             articles_found=0,
             articles_created=0,
+            articles_failed=0,
             error_message="Source not found",
         )
     
@@ -86,15 +429,20 @@ def crawl_rss_source(db: Session, source_id: int) -> CrawlResult:
             success=False,
             articles_found=0,
             articles_created=0,
+            articles_failed=0,
             error_message="Source is disabled",
         )
     
-    if source.parse_strategy != "rss":
+    strategy = source.parse_strategy
+    valid_strategies = ["rss", "html", "json", "custom"]
+    
+    if strategy not in valid_strategies:
         return CrawlResult(
             success=False,
             articles_found=0,
             articles_created=0,
-            error_message=f"Unsupported parse strategy: {source.parse_strategy}. Only rss is supported.",
+            articles_failed=0,
+            error_message=f"Unsupported parse strategy: {strategy}. Supported strategies: {', '.join(valid_strategies)}",
         )
     
     crawl_log = CrawlLog(
@@ -108,67 +456,25 @@ def crawl_rss_source(db: Session, source_id: int) -> CrawlResult:
     db.refresh(crawl_log)
     
     try:
-        feed = fetch_rss_feed(source.url)
-        
-        if feed.bozo and feed.bozo_exception:
-            raise Exception(f"RSS parsing error: {feed.bozo_exception}")
-        
-        entries = feed.entries or []
-        articles_found = len(entries)
-        articles_created = 0
-        
-        existing_urls = set()
-        existing_hashes = set()
-        
-        if entries:
-            urls = [entry.get("link") or entry.get("id") or "" for entry in entries]
-            if urls:
-                existing_records = db.execute(
-                    select(RawArticle.url, RawArticle.content_hash)
-                    .where(or_(RawArticle.url.in_(urls)))
-                ).all()
-                existing_urls = {r[0] for r in existing_records}
-                existing_hashes = {r[1] for r in existing_records}
+        articles_data, log_metadata = crawl_source_by_strategy(db, source, strategy)
         
         fetched_at = datetime.now(timezone.utc)
-        
-        for entry in entries:
-            try:
-                article_data = parse_rss_entry(entry, source.url)
-                
-                if article_data["url"] in existing_urls:
-                    continue
-                
-                if article_data["content_hash"] in existing_hashes:
-                    continue
-                
-                raw_article = RawArticle(
-                    source_id=source_id,
-                    title=article_data["title"][:512],
-                    url=article_data["url"],
-                    published_at=article_data["published_at"],
-                    author=article_data["author"][:255] if article_data["author"] else None,
-                    content=article_data["content"],
-                    content_hash=article_data["content_hash"],
-                    fetched_at=fetched_at,
-                    raw_metadata=article_data["raw_metadata"],
-                )
-                db.add(raw_article)
-                
-                existing_urls.add(article_data["url"])
-                existing_hashes.add(article_data["content_hash"])
-                articles_created += 1
-                
-            except Exception:
-                continue
+        articles_found, articles_created, articles_failed = process_articles(
+            db, source_id, articles_data, fetched_at
+        )
         
         source.last_crawled_at = fetched_at
         db.add(source)
+        
+        log_metadata = log_metadata or {}
+        log_metadata["parse_strategy"] = strategy
+        log_metadata["articles_failed"] = articles_failed
         
         crawl_log.status = "success"
         crawl_log.articles_found = articles_found
         crawl_log.articles_created = articles_created
         crawl_log.finished_at = datetime.now(timezone.utc)
+        crawl_log.log_metadata = log_metadata
         
         db.commit()
         
@@ -176,7 +482,8 @@ def crawl_rss_source(db: Session, source_id: int) -> CrawlResult:
             success=True,
             articles_found=articles_found,
             articles_created=articles_created,
-            log_metadata={"feed_title": feed.feed.get("title") if feed.feed else None},
+            articles_failed=articles_failed,
+            log_metadata=log_metadata,
         )
         
     except Exception as e:
@@ -192,5 +499,6 @@ def crawl_rss_source(db: Session, source_id: int) -> CrawlResult:
             success=False,
             articles_found=0,
             articles_created=0,
+            articles_failed=0,
             error_message=error_msg,
         )

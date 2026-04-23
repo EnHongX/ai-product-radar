@@ -95,7 +95,7 @@ export const en = {
     crawl: "Crawl",
     crawlSuccess: "Crawl task started",
     crawlDisabled: "Cannot crawl disabled source",
-    crawlNotRss: "Only RSS sources can be crawled",
+    crawlNotRss: "Unsupported parse strategy",
   },
   phases: {
     phase1: "Phase 1",
