@@ -163,6 +163,15 @@ def get_raw_article(article_id: int, db: Session = Depends(get_db)):
     return result
 
 
+class BatchDeleteRequest(BaseModel):
+    ids: list[int]
+
+
+class BatchDeleteResponse(BaseModel):
+    deleted_count: int
+    message: str
+
+
 @router.delete("/raw-articles/{article_id}")
 def delete_raw_article(article_id: int, db: Session = Depends(get_db)):
     article = db.execute(select(RawArticle).where(RawArticle.id == article_id)).scalar_one_or_none()
@@ -174,6 +183,33 @@ def delete_raw_article(article_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Article deleted successfully"}
+
+
+@router.post("/raw-articles/batch-delete", response_model=BatchDeleteResponse)
+def batch_delete_raw_articles(
+    request: BatchDeleteRequest,
+    db: Session = Depends(get_db),
+):
+    if not request.ids:
+        raise HTTPException(status_code=400, detail="No article IDs provided")
+
+    result = db.execute(
+        select(RawArticle.id).where(RawArticle.id.in_(request.ids))
+    ).all()
+    existing_ids = {r[0] for r in result}
+
+    if not existing_ids:
+        raise HTTPException(status_code=404, detail="No articles found with the provided IDs")
+
+    db.execute(
+        RawArticle.__table__.delete().where(RawArticle.id.in_(existing_ids))
+    )
+    db.commit()
+
+    return BatchDeleteResponse(
+        deleted_count=len(existing_ids),
+        message=f"Successfully deleted {len(existing_ids)} article(s)"
+    )
 
 
 @router.get("/crawl-logs", response_model=list[CrawlLogListResponse])

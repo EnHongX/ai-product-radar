@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Eye, Trash2, ExternalLink, X } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Eye, Trash2, ExternalLink, X, CheckSquare, Square } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin-layout";
 import { useLanguage } from "@/i18n";
 import type { RawArticle, RawArticleDetail, Company, Source } from "@/lib/api";
-import { fetchRawArticles, fetchRawArticle, deleteRawArticle, fetchCompanies, fetchSources } from "@/lib/api";
+import { fetchRawArticles, fetchRawArticle, deleteRawArticle, batchDeleteRawArticles, fetchCompanies, fetchSources } from "@/lib/api";
 
 export function RawArticlesPageContent() {
   const { t } = useLanguage();
@@ -24,6 +24,9 @@ export function RawArticlesPageContent() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [batchDeleteLoading, setBatchDeleteLoading] = useState(false);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -36,6 +39,7 @@ export function RawArticlesPageContent() {
       
       const articlesData = await fetchRawArticles(filterSourceId, filterCompanyId, 50, 0);
       setArticles(articlesData);
+      setSelectedIds(new Set());
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load articles");
@@ -82,6 +86,51 @@ export function RawArticlesPageContent() {
     }
   };
 
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (selectedIds.size === articles.length && articles.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(articles.map(a => a.id)));
+    }
+  }, [selectedIds.size, articles]);
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) {
+      setError(t.rawArticles.noSelection);
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    const confirmMessage = t.rawArticles.confirmBatchDelete.replace("{count}", selectedIds.size.toString());
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setBatchDeleteLoading(true);
+      const result = await batchDeleteRawArticles(Array.from(selectedIds));
+      setSuccessMessage(t.rawArticles.batchDeleteSuccess.replace("{count}", result.deleted_count.toString()));
+      setTimeout(() => setSuccessMessage(null), 3000);
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to batch delete articles");
+    } finally {
+      setBatchDeleteLoading(false);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
     return new Date(dateString).toLocaleString();
@@ -92,12 +141,17 @@ export function RawArticlesPageContent() {
     return url.substring(0, maxLength - 3) + "...";
   };
 
-  const getCompanyName = (article: RawArticle) => {
+  const getCompanyName = (article: RawArticle | RawArticleDetail) => {
     if (article.company?.name) return article.company.name;
+    const source = sources.find(s => s.id === article.source_id);
+    if (source) {
+      const company = companies.find(c => c.id === source.company_id);
+      if (company?.name) return company.name;
+    }
     return "-";
   };
 
-  const getSourceName = (article: RawArticle) => {
+  const getSourceName = (article: RawArticle | RawArticleDetail) => {
     if (article.source?.name) return article.source.name;
     const source = sources.find(s => s.id === article.source_id);
     return source?.name || "-";
@@ -107,11 +161,29 @@ export function RawArticlesPageContent() {
     ? sources.filter(s => s.company_id === filterCompanyId)
     : sources;
 
+  const allSelected = articles.length > 0 && selectedIds.size === articles.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < articles.length;
+
   return (
     <AdminLayout>
       <div className="rounded-lg border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-base font-semibold text-ink">{t.rawArticles.title}</h2>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted">
+                {t.rawArticles.selected}: <span className="font-medium text-ink">{selectedIds.size}</span> {t.rawArticles.items}
+              </span>
+              <button
+                onClick={handleBatchDelete}
+                disabled={batchDeleteLoading}
+                className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+                {batchDeleteLoading ? "..." : t.rawArticles.batchDelete}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-4 px-5 py-3 border-b border-line bg-gray-50">
@@ -174,6 +246,21 @@ export function RawArticlesPageContent() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-line bg-gray-50">
+                  <th className="px-4 py-3 text-left">
+                    <button
+                      onClick={toggleSelectAll}
+                      className="rounded p-0.5 hover:bg-gray-200 transition-colors"
+                      title={allSelected ? t.rawArticles.deselectAll : t.rawArticles.selectAll}
+                    >
+                      {allSelected ? (
+                        <CheckSquare className="h-4 w-4 text-accent" />
+                      ) : someSelected ? (
+                        <CheckSquare className="h-4 w-4 text-accent opacity-60" />
+                      ) : (
+                        <Square className="h-4 w-4 text-muted" />
+                      )}
+                    </button>
+                  </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink">{t.rawArticles.articleTitle}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden md:table-cell">{t.rawArticles.company}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden lg:table-cell">{t.rawArticles.source}</th>
@@ -185,7 +272,19 @@ export function RawArticlesPageContent() {
               </thead>
               <tbody className="divide-y divide-line">
                 {articles.map((article) => (
-                  <tr key={article.id} className="hover:bg-gray-50">
+                  <tr key={article.id} className={`hover:bg-gray-50 ${selectedIds.has(article.id) ? "bg-blue-50" : ""}`}>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => toggleSelect(article.id)}
+                        className="rounded p-0.5 hover:bg-gray-200 transition-colors"
+                      >
+                        {selectedIds.has(article.id) ? (
+                          <CheckSquare className="h-4 w-4 text-accent" />
+                        ) : (
+                          <Square className="h-4 w-4 text-muted" />
+                        )}
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-ink truncate max-w-[200px]" title={article.title}>
@@ -313,10 +412,9 @@ export function RawArticlesPageContent() {
                     <label className="text-sm font-medium text-muted">{t.rawArticles.content}</label>
                     <div className="mt-1 p-4 bg-gray-50 rounded-md border border-line max-h-[400px] overflow-y-auto">
                       {selectedArticle.content ? (
-                        <div
-                          className="text-sm text-ink prose prose-sm max-w-none"
-                          dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
-                        />
+                        <pre className="text-sm text-ink whitespace-pre-wrap break-words">
+                          {selectedArticle.content}
+                        </pre>
                       ) : (
                         <p className="text-muted">{t.common.noData}</p>
                       )}

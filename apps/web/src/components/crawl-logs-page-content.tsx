@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, X, CheckCircle, XCircle, Loader2, AlertTriangle, Info, ChevronDown, ChevronRight } from "lucide-react";
+import { Eye, X, CheckCircle, XCircle, Loader2, AlertTriangle, Info, ChevronDown, ChevronRight, MinusCircle } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin-layout";
 import { useLanguage } from "@/i18n";
@@ -40,6 +40,24 @@ interface ArticleRecord {
   content_from_url?: boolean;
   url_fetch_attempted?: boolean;
   url_fetch_successful?: boolean;
+}
+
+type LogResultType = "success_with_new" | "success_no_new" | "failed" | "running" | "unknown";
+
+function getLogResultType(log: CrawlLog, skipped: number, failed: number): LogResultType {
+  if (log.status === "running") {
+    return "running";
+  }
+  if (log.status === "failed" || failed > 0) {
+    return "failed";
+  }
+  if (log.articles_created > 0) {
+    return "success_with_new";
+  }
+  if (log.articles_found > 0) {
+    return "success_no_new";
+  }
+  return "unknown";
 }
 
 export function CrawlLogsPageContent() {
@@ -111,10 +129,12 @@ export function CrawlLogsPageContent() {
     return new Date(dateString).toLocaleString();
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "success":
+  const getStatusIcon = (resultType: LogResultType) => {
+    switch (resultType) {
+      case "success_with_new":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case "success_no_new":
+        return <MinusCircle className="h-4 w-4 text-yellow-600" />;
       case "failed":
         return <XCircle className="h-4 w-4 text-red-600" />;
       case "running":
@@ -124,33 +144,42 @@ export function CrawlLogsPageContent() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "success":
+  const getStatusBadge = (log: CrawlLog, skipped: number, failed: number) => {
+    const resultType = getLogResultType(log, skipped, failed);
+    
+    switch (resultType) {
+      case "success_with_new":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            {getStatusIcon(status)}
-            {t.crawlLogs.success}
+            {getStatusIcon(resultType)}
+            {t.crawlLogs.success} (+{log.articles_created})
+          </span>
+        );
+      case "success_no_new":
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            {getStatusIcon(resultType)}
+            {t.crawlLogs.success} (无新增)
           </span>
         );
       case "failed":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            {getStatusIcon(status)}
+            {getStatusIcon(resultType)}
             {t.crawlLogs.failed}
           </span>
         );
       case "running":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            {getStatusIcon(status)}
+            {getStatusIcon(resultType)}
             {t.crawlLogs.running}
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-            {status}
+            {log.status}
           </span>
         );
     }
@@ -308,11 +337,12 @@ export function CrawlLogsPageContent() {
                   const skipped = getSkippedCount(log);
                   const failed = getFailedCount(log);
                   const hasIssues = skipped > 0 || failed > 0;
+                  const resultType = getLogResultType(log, skipped, failed);
                   
                   return (
-                    <tr key={log.id} className="hover:bg-gray-50">
+                    <tr key={log.id} className={`hover:bg-gray-50 ${resultType === "success_no_new" ? "bg-yellow-50/30" : ""}`}>
                       <td className="px-4 py-3">
-                        {getStatusBadge(log.status)}
+                        {getStatusBadge(log, skipped, failed)}
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <span className="text-sm text-muted">{getCompanyName(log)}</span>
@@ -329,7 +359,9 @@ export function CrawlLogsPageContent() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-ink">{log.articles_found}</span>
                           <span className="text-sm text-muted">/</span>
-                          <span className="text-sm font-medium text-green-600">{log.articles_created}</span>
+                          <span className={`text-sm font-medium ${log.articles_created > 0 ? "text-green-600" : "text-muted"}`}>
+                            {log.articles_created}
+                          </span>
                           {(skipped > 0 || failed > 0) && (
                             <>
                               <span className="text-sm text-muted">/</span>
@@ -399,7 +431,7 @@ export function CrawlLogsPageContent() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted">Status</label>
-                    <p className="mt-1">{getStatusBadge(selectedLog.status)}</p>
+                    <p className="mt-1">{getStatusBadge(selectedLog, getSkippedCount(selectedLog), getFailedCount(selectedLog))}</p>
                   </div>
                 </div>
 
@@ -453,11 +485,11 @@ export function CrawlLogsPageContent() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted">Started At</label>
+                    <label className="text-sm font-medium text-muted">{t.crawlLogs.startedAt}</label>
                     <p className="text-ink mt-1">{formatDate(selectedLog.started_at)}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted">Finished At</label>
+                    <label className="text-sm font-medium text-muted">{t.crawlLogs.finishedAt}</label>
                     <p className="text-ink mt-1">{formatDate(selectedLog.finished_at)}</p>
                   </div>
                 </div>

@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.routers.companies import router as companies_router
 from app.routers.company_types import router as company_types_router
+from app.routers.extractions import router as extractions_router
 from app.routers.health import router as health_router
 from app.routers.raw_articles import router as raw_articles_router
 from app.routers.sources import router as sources_router
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(company_types_router, prefix="/api")
     app.include_router(source_types_router, prefix="/api")
     app.include_router(raw_articles_router, prefix="/api")
+    app.include_router(extractions_router, prefix="/api")
     return app
 
 

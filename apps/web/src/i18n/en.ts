@@ -177,6 +177,14 @@ export const en = {
     filterBySource: "Filter by Source",
     allCompanies: "All Companies",
     allSources: "All Sources",
+    selectAll: "Select All",
+    deselectAll: "Deselect All",
+    selected: "Selected",
+    items: "items",
+    batchDelete: "Batch Delete",
+    confirmBatchDelete: "Are you sure you want to delete {count} selected articles?",
+    batchDeleteSuccess: "Successfully deleted {count} articles",
+    noSelection: "Please select articles to delete first",
   },
   crawlLogs: {
     title: "Crawl Logs",
@@ -201,5 +209,6 @@ export const en = {
     viewError: "View Error Details",
     errorDetail: "Error Details",
     close: "Close",
+    actions: "Actions",
   },
 };

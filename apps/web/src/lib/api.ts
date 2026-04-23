@@ -508,6 +508,28 @@ export async function deleteRawArticle(id: number): Promise<void> {
   }
 }
 
+export type BatchDeleteResult = {
+  deleted_count: number;
+  message: string;
+};
+
+export async function batchDeleteRawArticles(ids: number[]): Promise<BatchDeleteResult> {
+  const response = await fetch(`${API_BASE_URL}/api/raw-articles/batch-delete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ids }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to batch delete articles");
+  }
+
+  return response.json();
+}
+
 export type CrawlLogSource = {
   id: number;
   name: string;
