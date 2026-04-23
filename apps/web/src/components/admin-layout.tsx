@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Database, Tags, Layers } from "lucide-react";
+import { Building2, Database, Tags, Layers, FileText, History } from "lucide-react";
 
 import { Header } from "@/components/header";
 import { useLanguage } from "@/i18n";
@@ -39,6 +39,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       label: t.admin.sourceTypes,
       icon: Layers,
       active: pathname === "/admin/source-types",
+    },
+    {
+      href: "/admin/raw-articles",
+      label: t.admin.rawArticles,
+      icon: FileText,
+      active: pathname === "/admin/raw-articles",
+    },
+    {
+      href: "/admin/crawl-logs",
+      label: t.admin.crawlLogs,
+      icon: History,
+      active: pathname === "/admin/crawl-logs",
     },
   ];
 
