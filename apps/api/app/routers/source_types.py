@@ -109,14 +109,3 @@ def update_source_type(type_id: int, data: SourceTypeUpdate, db: Session = Depen
     db.commit()
     db.refresh(type_obj)
     return type_obj
-
-
-@router.delete("/source-types/{type_id}")
-def delete_source_type(type_id: int, db: Session = Depends(get_db)):
-    type_obj = db.execute(select(SourceType).where(SourceType.id == type_id)).scalar_one_or_none()
-    if not type_obj:
-        raise HTTPException(status_code=404, detail="Source type not found")
-
-    db.delete(type_obj)
-    db.commit()
-    return {"message": "Source type deleted successfully"}

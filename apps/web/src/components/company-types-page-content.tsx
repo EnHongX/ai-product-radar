@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Edit2, ToggleLeft, ToggleRight } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin-layout";
 import { TypeForm } from "@/components/type-form";
 import { useLanguage } from "@/i18n";
 import type { CompanyType, CompanyTypeCreate, CompanyTypeUpdate } from "@/lib/api";
-import { fetchCompanyTypes, createCompanyType, updateCompanyType, deleteCompanyType } from "@/lib/api";
+import { fetchCompanyTypes, createCompanyType, updateCompanyType } from "@/lib/api";
 
 export function CompanyTypesPageContent() {
   const { t } = useLanguage();
@@ -45,21 +45,6 @@ export function CompanyTypesPageContent() {
   const handleEditClick = (typeItem: CompanyType) => {
     setEditingType(typeItem);
     setShowForm(true);
-  };
-
-  const handleDeleteClick = async (typeItem: CompanyType) => {
-    if (!window.confirm(typeT.confirmDelete)) {
-      return;
-    }
-
-    try {
-      await deleteCompanyType(typeItem.id);
-      setSuccessMessage(typeT.deleteSuccess);
-      setTimeout(() => setSuccessMessage(null), 3000);
-      loadTypes();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete company type");
-    }
   };
 
   const handleToggleStatus = async (typeItem: CompanyType) => {
@@ -182,13 +167,6 @@ export function CompanyTypesPageContent() {
                           title={typeT.edit}
                         >
                           <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(typeItem)}
-                          className="rounded p-1.5 text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
-                          title={typeT.delete}
-                        >
-                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

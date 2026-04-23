@@ -109,14 +109,3 @@ def update_company_type(type_id: int, data: CompanyTypeUpdate, db: Session = Dep
     db.commit()
     db.refresh(type_obj)
     return type_obj
-
-
-@router.delete("/company-types/{type_id}")
-def delete_company_type(type_id: int, db: Session = Depends(get_db)):
-    type_obj = db.execute(select(CompanyType).where(CompanyType.id == type_id)).scalar_one_or_none()
-    if not type_obj:
-        raise HTTPException(status_code=404, detail="Company type not found")
-
-    db.delete(type_obj)
-    db.commit()
-    return {"message": "Company type deleted successfully"}

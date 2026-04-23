@@ -316,17 +316,6 @@ export async function updateCompanyType(id: number, data: CompanyTypeUpdate): Pr
   return response.json();
 }
 
-export async function deleteCompanyType(id: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/company-types/${id}`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || "Failed to delete company type");
-  }
-}
-
 export type SourceType = {
   id: number;
   name: string;
@@ -403,15 +392,4 @@ export async function updateSourceType(id: number, data: SourceTypeUpdate): Prom
   }
 
   return response.json();
-}
-
-export async function deleteSourceType(id: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/source-types/${id}`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || "Failed to delete source type");
-  }
 }
