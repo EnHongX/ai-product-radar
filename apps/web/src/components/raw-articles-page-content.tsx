@@ -304,112 +304,114 @@ export function RawArticlesPageContent() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-line bg-gray-50">
-                  <th className="px-4 py-3 text-left">
-                    <button
-                      onClick={toggleSelectAll}
-                      className="rounded p-0.5 hover:bg-gray-200 transition-colors"
-                      title={allSelected ? t.rawArticles.deselectAll : t.rawArticles.selectAll}
-                    >
-                      {allSelected ? (
-                        <CheckSquare className="h-4 w-4 text-accent" />
-                      ) : someSelected ? (
-                        <CheckSquare className="h-4 w-4 text-accent opacity-60" />
-                      ) : (
-                        <Square className="h-4 w-4 text-muted" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-ink">{t.rawArticles.articleTitle}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden md:table-cell">{t.rawArticles.company}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden lg:table-cell">{t.rawArticles.source}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-ink">{t.rawArticles.url}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden sm:table-cell">{t.rawArticles.publishedAt}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden md:table-cell">{t.rawArticles.fetchedAt}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-ink">{t.rawArticles.actions}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {articles.map((article) => (
-                  <tr key={article.id} className={`hover:bg-gray-50 ${selectedIds.has(article.id) ? "bg-blue-50" : ""}`}>
-                    <td className="px-4 py-3">
+            <div className="min-w-max">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-line bg-gray-50 whitespace-nowrap">
+                    <th className="px-4 py-3 text-left">
                       <button
-                        onClick={() => toggleSelect(article.id)}
+                        onClick={toggleSelectAll}
                         className="rounded p-0.5 hover:bg-gray-200 transition-colors"
+                        title={allSelected ? t.rawArticles.deselectAll : t.rawArticles.selectAll}
                       >
-                        {selectedIds.has(article.id) ? (
+                        {allSelected ? (
                           <CheckSquare className="h-4 w-4 text-accent" />
+                        ) : someSelected ? (
+                          <CheckSquare className="h-4 w-4 text-accent opacity-60" />
                         ) : (
                           <Square className="h-4 w-4 text-muted" />
                         )}
                       </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-ink truncate max-w-[200px]" title={article.title}>
-                          {article.title}
-                        </span>
-                        <span className="text-xs text-muted sm:hidden">
-                          {getCompanyName(article)} / {getSourceName(article)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-sm text-muted">{getCompanyName(article)}</span>
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      <span className="text-sm text-muted">{getSourceName(article)}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <a
-                        href={article.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-accent hover:underline flex items-center gap-1 max-w-[250px]"
-                        title={article.url}
-                      >
-                        <span className="truncate">{truncateUrl(article.url)}</span>
-                        <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                      </a>
-                    </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-sm text-muted">{formatDate(article.published_at)}</span>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-sm text-muted">{formatDate(article.fetched_at)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          onClick={() => handleViewDetail(article)}
-                          className="rounded p-1.5 text-muted hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                          title={t.rawArticles.view}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleExtractSingle(article)}
-                          disabled={extractingId === article.id}
-                          className="rounded p-1.5 text-muted hover:text-purple-600 hover:bg-purple-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={t.rawArticles.extract}
-                        >
-                          <Sparkles className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(article)}
-                          className="rounded p-1.5 text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
-                          title={t.rawArticles.delete}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-ink min-w-[200px]">{t.rawArticles.articleTitle}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-ink min-w-[120px]">{t.rawArticles.company}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-ink min-w-[120px]">{t.rawArticles.source}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-ink min-w-[250px]">{t.rawArticles.url}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-ink min-w-[160px]">{t.rawArticles.publishedAt}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-ink min-w-[160px]">{t.rawArticles.fetchedAt}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-ink min-w-[120px]">{t.rawArticles.actions}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {articles.map((article) => (
+                    <tr key={article.id} className={`hover:bg-gray-50 ${selectedIds.has(article.id) ? "bg-blue-50" : ""} whitespace-nowrap`}>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => toggleSelect(article.id)}
+                          className="rounded p-0.5 hover:bg-gray-200 transition-colors"
+                        >
+                          {selectedIds.has(article.id) ? (
+                            <CheckSquare className="h-4 w-4 text-accent" />
+                          ) : (
+                            <Square className="h-4 w-4 text-muted" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-ink truncate max-w-[200px]" title={article.title}>
+                            {article.title}
+                          </span>
+                          <span className="text-xs text-muted sm:hidden">
+                            {getCompanyName(article)} / {getSourceName(article)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-muted">{getCompanyName(article)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-muted">{getSourceName(article)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <a
+                          href={article.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-accent hover:underline flex items-center gap-1 max-w-[250px]"
+                          title={article.url}
+                        >
+                          <span className="truncate">{truncateUrl(article.url)}</span>
+                          <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-muted">{formatDate(article.published_at)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-muted">{formatDate(article.fetched_at)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => handleViewDetail(article)}
+                            className="rounded p-1.5 text-muted hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            title={t.rawArticles.view}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleExtractSingle(article)}
+                            disabled={extractingId === article.id}
+                            className="rounded p-1.5 text-muted hover:text-purple-600 hover:bg-purple-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={t.rawArticles.extract}
+                          >
+                            <Sparkles className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(article)}
+                            className="rounded p-1.5 text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title={t.rawArticles.delete}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

@@ -253,8 +253,12 @@ export const zh = {
     statusSkippedDuplicate: "已跳过(重复)",
     statusFailedParse: "失败(解析)",
     statusFailedDb: "失败(数据库)",
+    statusFailedEmptyContent: "失败(无内容)",
+    statusFailedTimeout: "失败(超时)",
     statusParsed: "已解析",
     statusUnknown: "未知",
+    emptyContentError: "文章内容为空或包含'暂无数据'等占位符",
+    timeoutError: "任务执行超时",
   },
   reviewTasks: {
     title: "审核管理",
