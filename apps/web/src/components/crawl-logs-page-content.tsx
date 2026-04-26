@@ -159,7 +159,7 @@ export function CrawlLogsPageContent() {
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
             {getStatusIcon(resultType)}
-            {t.crawlLogs.success} (无新增)
+            {t.crawlLogs.success} ({t.crawlLogs.noNew})
           </span>
         );
       case "failed":
@@ -212,19 +212,19 @@ export function CrawlLogsPageContent() {
     const status = record.process_status || record.status;
     switch (status) {
       case "created":
-        return { label: "Created", color: "text-green-600", bg: "bg-green-50" };
+        return { label: t.crawlLogs.statusCreated, color: "text-green-600", bg: "bg-green-50" };
       case "skipped_url_exists":
-        return { label: "Skipped (URL exists)", color: "text-yellow-600", bg: "bg-yellow-50" };
+        return { label: t.crawlLogs.statusSkippedUrlExists, color: "text-yellow-600", bg: "bg-yellow-50" };
       case "skipped_hash_exists":
-        return { label: "Skipped (Duplicate)", color: "text-yellow-600", bg: "bg-yellow-50" };
+        return { label: t.crawlLogs.statusSkippedDuplicate, color: "text-yellow-600", bg: "bg-yellow-50" };
       case "failed_parse":
-        return { label: "Failed (Parse)", color: "text-red-600", bg: "bg-red-50" };
+        return { label: t.crawlLogs.statusFailedParse, color: "text-red-600", bg: "bg-red-50" };
       case "failed_db":
-        return { label: "Failed (Database)", color: "text-red-600", bg: "bg-red-50" };
+        return { label: t.crawlLogs.statusFailedDb, color: "text-red-600", bg: "bg-red-50" };
       case "parsed":
-        return { label: "Parsed", color: "text-blue-600", bg: "bg-blue-50" };
+        return { label: t.crawlLogs.statusParsed, color: "text-blue-600", bg: "bg-blue-50" };
       default:
-        return { label: status || "Unknown", color: "text-gray-600", bg: "bg-gray-50" };
+        return { label: status || t.crawlLogs.statusUnknown, color: "text-gray-600", bg: "bg-gray-50" };
     }
   };
 
@@ -323,8 +323,8 @@ export function CrawlLogsPageContent() {
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink">{t.crawlLogs.source}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden sm:table-cell">
                     <div className="flex flex-col">
-                      <span>Found</span>
-                      <span className="text-xs text-muted">/ Created / Skipped / Failed</span>
+                      <span>{t.crawlLogs.found}</span>
+                      <span className="text-xs text-muted">/ {t.crawlLogs.created} / {t.crawlLogs.skipped} / {t.crawlLogs.failed}</span>
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ink hidden lg:table-cell">{t.crawlLogs.startedAt}</th>
@@ -391,10 +391,10 @@ export function CrawlLogsPageContent() {
                         <button
                           onClick={() => handleViewDetail(log)}
                           className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-muted hover:text-ink hover:bg-gray-100 transition-colors"
-                          title="View details"
+                          title={t.crawlLogs.details}
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          Details
+                          {t.crawlLogs.details}
                         </button>
                       </td>
                     </tr>
@@ -412,7 +412,7 @@ export function CrawlLogsPageContent() {
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
               <div className="flex items-center gap-3">
                 <Info className="h-5 w-5 text-blue-600" />
-                <h3 className="text-base font-semibold text-ink">Crawl Log Details</h3>
+                <h3 className="text-base font-semibold text-ink">{t.crawlLogs.logDetails}</h3>
               </div>
               <button
                 onClick={handleCloseDetail}
@@ -426,57 +426,57 @@ export function CrawlLogsPageContent() {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted">Source</label>
+                    <label className="text-sm font-medium text-muted">{t.crawlLogs.source}</label>
                     <p className="text-ink mt-1">{getSourceName(selectedLog)}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted">Status</label>
+                    <label className="text-sm font-medium text-muted">{t.crawlLogs.status}</label>
                     <p className="mt-1">{getStatusBadge(selectedLog, getSkippedCount(selectedLog), getFailedCount(selectedLog))}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="rounded-lg bg-blue-50 p-3">
-                    <label className="text-xs font-medium text-blue-700">Found</label>
+                    <label className="text-xs font-medium text-blue-700">{t.crawlLogs.found}</label>
                     <p className="text-2xl font-bold text-blue-900">{selectedLog.articles_found}</p>
                   </div>
                   <div className="rounded-lg bg-green-50 p-3">
-                    <label className="text-xs font-medium text-green-700">Created</label>
+                    <label className="text-xs font-medium text-green-700">{t.crawlLogs.created}</label>
                     <p className="text-2xl font-bold text-green-900">{selectedLog.articles_created}</p>
                   </div>
                   <div className="rounded-lg bg-yellow-50 p-3">
-                    <label className="text-xs font-medium text-yellow-700">Skipped</label>
+                    <label className="text-xs font-medium text-yellow-700">{t.crawlLogs.skipped}</label>
                     <p className="text-2xl font-bold text-yellow-900">{getSkippedCount(selectedLog)}</p>
                   </div>
                   <div className="rounded-lg bg-red-50 p-3">
-                    <label className="text-xs font-medium text-red-700">Failed</label>
+                    <label className="text-xs font-medium text-red-700">{t.crawlLogs.failed}</label>
                     <p className="text-2xl font-bold text-red-900">{getFailedCount(selectedLog)}</p>
                   </div>
                 </div>
 
                 {getBreakdown(selectedLog) && (
                   <div className="rounded-lg border border-line bg-gray-50 p-4">
-                    <label className="text-sm font-medium text-muted block mb-2">Summary</label>
+                    <label className="text-sm font-medium text-muted block mb-2">{t.crawlLogs.summary}</label>
                     <p className="text-sm text-ink">
                       {getBreakdown(selectedLog)?.summary}
                     </p>
                     {getBreakdown(selectedLog)?.skipped_reasons && (
                       <div className="mt-3 flex flex-wrap gap-3 text-sm">
                         <span className="text-yellow-600">
-                          URL exists: {getBreakdown(selectedLog)?.skipped_reasons?.url_already_exists || 0}
+                          {t.crawlLogs.urlExists}: {getBreakdown(selectedLog)?.skipped_reasons?.url_already_exists || 0}
                         </span>
                         <span className="text-yellow-600">
-                          Duplicate content: {getBreakdown(selectedLog)?.skipped_reasons?.content_hash_already_exists || 0}
+                          {t.crawlLogs.duplicateContent}: {getBreakdown(selectedLog)?.skipped_reasons?.content_hash_already_exists || 0}
                         </span>
                       </div>
                     )}
                     {getBreakdown(selectedLog)?.failed_reasons && (
                       <div className="mt-2 flex flex-wrap gap-3 text-sm">
                         <span className="text-red-600">
-                          Parse failed: {getBreakdown(selectedLog)?.failed_reasons?.parse_failed || 0}
+                          {t.crawlLogs.parseFailed}: {getBreakdown(selectedLog)?.failed_reasons?.parse_failed || 0}
                         </span>
                         <span className="text-red-600">
-                          DB failed: {getBreakdown(selectedLog)?.failed_reasons?.database_operation_failed || 0}
+                          {t.crawlLogs.dbFailed}: {getBreakdown(selectedLog)?.failed_reasons?.database_operation_failed || 0}
                         </span>
                       </div>
                     )}
@@ -508,7 +508,7 @@ export function CrawlLogsPageContent() {
                 {getArticleRecords(selectedLog).length > 0 && (
                   <div>
                     <label className="text-sm font-medium text-muted block mb-3">
-                      Article Processing Details ({getArticleRecords(selectedLog).length} articles)
+                      {t.crawlLogs.articleProcessingDetails} ({getArticleRecords(selectedLog).length} {t.crawlLogs.articles})
                     </label>
                     <div className="border border-line rounded-lg overflow-hidden">
                       <div className="max-h-[500px] overflow-y-auto">
@@ -543,21 +543,21 @@ export function CrawlLogsPageContent() {
                                 <div className="px-4 pb-3 pl-11 border-t border-line border-opacity-50">
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                                     <div>
-                                      <label className="text-xs font-medium text-muted">Title</label>
-                                      <p className="text-sm text-ink break-words">{record.title || "Untitled"}</p>
+                                      <label className="text-xs font-medium text-muted">{t.crawlLogs.title}</label>
+                                      <p className="text-sm text-ink break-words">{record.title || t.common.noData}</p>
                                     </div>
                                     <div>
-                                      <label className="text-xs font-medium text-muted">URL</label>
+                                      <label className="text-xs font-medium text-muted">{t.crawlLogs.url}</label>
                                       <p className="text-sm text-ink break-all">{record.url || "-"}</p>
                                     </div>
                                     <div>
-                                      <label className="text-xs font-medium text-muted">Status</label>
+                                      <label className="text-xs font-medium text-muted">{t.crawlLogs.status}</label>
                                       <p className={`text-sm ${status.color} font-medium`}>{status.label}</p>
                                     </div>
                                     <div>
-                                      <label className="text-xs font-medium text-muted">Content Source</label>
+                                      <label className="text-xs font-medium text-muted">{t.crawlLogs.contentSource}</label>
                                       <p className="text-sm text-ink">
-                                        {record.content_from_url ? "Article URL" : "Feed/API"}
+                                        {record.content_from_url ? t.crawlLogs.fromUrl : t.crawlLogs.fromFeed}
                                         {record.content_source && (
                                           <span className="text-muted"> ({record.content_source})</span>
                                         )}
@@ -565,25 +565,25 @@ export function CrawlLogsPageContent() {
                                     </div>
                                     {record.final_content_length !== undefined && (
                                       <div>
-                                        <label className="text-xs font-medium text-muted">Final Content Length</label>
-                                        <p className="text-sm text-ink">{record.final_content_length.toLocaleString()} chars</p>
+                                        <label className="text-xs font-medium text-muted">{t.crawlLogs.finalContentLength}</label>
+                                        <p className="text-sm text-ink">{record.final_content_length.toLocaleString()} {t.crawlLogs.chars}</p>
                                       </div>
                                     )}
                                     {record.source_content_length !== undefined && (
                                       <div>
-                                        <label className="text-xs font-medium text-muted">Source Content Length</label>
-                                        <p className="text-sm text-ink">{record.source_content_length.toLocaleString()} chars</p>
+                                        <label className="text-xs font-medium text-muted">{t.crawlLogs.sourceContentLength}</label>
+                                        <p className="text-sm text-ink">{record.source_content_length.toLocaleString()} {t.crawlLogs.chars}</p>
                                       </div>
                                     )}
                                     <div>
-                                      <label className="text-xs font-medium text-muted">URL Fetch Attempted</label>
-                                      <p className="text-sm text-ink">{record.url_fetch_attempted ? "Yes" : "No"}</p>
+                                      <label className="text-xs font-medium text-muted">{t.crawlLogs.urlFetchAttempted}</label>
+                                      <p className="text-sm text-ink">{record.url_fetch_attempted ? t.crawlLogs.yes : t.crawlLogs.no}</p>
                                     </div>
                                     {record.url_fetch_attempted && (
                                       <div>
-                                        <label className="text-xs font-medium text-muted">URL Fetch Successful</label>
+                                        <label className="text-xs font-medium text-muted">{t.crawlLogs.urlFetchSuccessful}</label>
                                         <p className={`text-sm ${record.url_fetch_successful ? "text-green-600" : "text-red-600"}`}>
-                                          {record.url_fetch_successful ? "Yes" : "No"}
+                                          {record.url_fetch_successful ? t.crawlLogs.yes : t.crawlLogs.no}
                                         </p>
                                       </div>
                                     )}
@@ -591,7 +591,7 @@ export function CrawlLogsPageContent() {
                                   
                                   {(record.reason || record.process_reason) && (
                                     <div className="mt-3">
-                                      <label className="text-xs font-medium text-muted">Reason</label>
+                                      <label className="text-xs font-medium text-muted">{t.crawlLogs.reason}</label>
                                       <p className="text-sm text-yellow-700 bg-yellow-50 px-3 py-2 rounded mt-1">
                                         {record.reason || record.process_reason}
                                       </p>
@@ -600,7 +600,7 @@ export function CrawlLogsPageContent() {
                                   
                                   {(record.error_message || record.process_error) && (
                                     <div className="mt-3">
-                                      <label className="text-xs font-medium text-muted">Error</label>
+                                      <label className="text-xs font-medium text-muted">{t.crawlLogs.error}</label>
                                       <div className="text-sm text-red-700 bg-red-50 px-3 py-2 rounded mt-1 overflow-x-auto">
                                         <pre className="whitespace-pre-wrap break-words">
                                           {record.error_message || record.process_error}
@@ -620,7 +620,7 @@ export function CrawlLogsPageContent() {
 
                 {selectedLog.log_metadata && (
                   <div>
-                    <label className="text-sm font-medium text-muted block mb-2">Raw Metadata (JSON)</label>
+                    <label className="text-sm font-medium text-muted block mb-2">{t.crawlLogs.rawMetadata}</label>
                     <div className="rounded-lg border border-line bg-gray-50 p-3 max-h-[300px] overflow-y-auto">
                       <pre className="text-xs text-ink whitespace-pre-wrap break-words">
                         {JSON.stringify(selectedLog.log_metadata, null, 2)}
