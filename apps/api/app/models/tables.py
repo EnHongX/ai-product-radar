@@ -259,6 +259,7 @@ class ExtractionLog(Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     confidence_score: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     raw_article: Mapped[RawArticle] = relationship(back_populates="extraction_logs")
     product_release: Mapped[ProductRelease | None] = relationship(back_populates="extraction_logs")
