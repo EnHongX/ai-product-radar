@@ -1,10 +1,10 @@
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
@@ -13,6 +13,7 @@ from app.models.tables import (
     ProductRelease,
     RawArticle,
     ReviewTask,
+    CrawlLog,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,41 @@ def calculate_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def clean_stalled_tasks(db: Session) -> dict[str, int]:
+    now = datetime.now(timezone.utc)
+    crawl_timeout = timedelta(seconds=settings.CRAWL_TIMEOUT_SECONDS + 120)
+    extraction_timeout = timedelta(seconds=settings.EXTRACTION_TIMEOUT_SECONDS + 120)
+    
+    crawl_result = db.execute(
+        update(CrawlLog)
+        .where(CrawlLog.status == "running")
+        .where(CrawlLog.started_at < now - crawl_timeout)
+        .values(
+            status="failed",
+            error_message=f"Task timed out after {settings.CRAWL_TIMEOUT_SECONDS} seconds (stale task cleanup)",
+            finished_at=now,
+        )
+    )
+    
+    extraction_result = db.execute(
+        update(ExtractionLog)
+        .where(ExtractionLog.status == "running")
+        .where(ExtractionLog.created_at < now - extraction_timeout)
+        .values(
+            status="failed",
+            error_message=f"Task timed out after {settings.EXTRACTION_TIMEOUT_SECONDS} seconds (stale task cleanup)",
+            finished_at=now,
+        )
+    )
+    
+    db.commit()
+    
+    return {
+        "crawl_tasks_cleaned": crawl_result.rowcount,
+        "extraction_tasks_cleaned": extraction_result.rowcount,
+    }
+
+
 def extract_from_article(
     db: Session,
     article_id: int,
@@ -69,29 +105,42 @@ def extract_from_article(
         ).where(RawArticle.id == article_id)
     ).scalar_one_or_none()
     
-    if not article:
-        result.error_message = f"Article with id {article_id} not found"
-        logger.error(result.error_message)
-        return result
-    
-    if not article.content:
-        result.error_message = f"Article {article_id} has no content to extract from"
-        logger.warning(result.error_message)
-        return result
-    
-    log = ExtractionLog(
-        raw_article_id=article.id,
-        status="running",
-        model_name=settings.LLM_MODEL if settings.llm_enabled else "none",
-        prompt_version=settings.LLM_EXTRACTION_PROMPT_VERSION,
-        input_hash=calculate_hash(article.content),
-    )
-    db.add(log)
-    db.commit()
-    db.refresh(log)
-    result.log_id = log.id
+    log: ExtractionLog | None = None
     
     try:
+        if not article:
+            result.error_message = f"Article with id {article_id} not found"
+            logger.error(result.error_message)
+            return result
+        
+        log = ExtractionLog(
+            raw_article_id=article.id,
+            status="running",
+            model_name=settings.LLM_MODEL if settings.llm_enabled else "none",
+            prompt_version=settings.LLM_EXTRACTION_PROMPT_VERSION,
+            input_hash=calculate_hash(article.content) if article.content else None,
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+        result.log_id = log.id
+        
+        if not article.content:
+            result.error_message = f"Article {article_id} has no content to extract from"
+            logger.warning(result.error_message)
+            
+            db.execute(
+                update(ExtractionLog)
+                .where(ExtractionLog.id == log.id)
+                .values(
+                    status="failed",
+                    error_message=result.error_message,
+                    finished_at=datetime.now(timezone.utc),
+                )
+            )
+            db.commit()
+            return result
+        
         if not settings.llm_enabled:
             releases = _mock_extract(article)
             logger.info(
@@ -106,8 +155,15 @@ def extract_from_article(
         result.releases_found = len(releases)
         
         if len(releases) == 0:
-            log.status = "success"
-            log.output_payload = {"releases": []}
+            db.execute(
+                update(ExtractionLog)
+                .where(ExtractionLog.id == log.id)
+                .values(
+                    status="success",
+                    output_payload={"releases": [], "note": "No releases found"},
+                    finished_at=datetime.now(timezone.utc),
+                )
+            )
             db.commit()
             result.success = True
             return result
@@ -128,12 +184,19 @@ def extract_from_article(
             else:
                 result.releases_skipped += 1
         
-        log.status = "success"
-        log.output_payload = {
-            "releases": [r.raw_payload for r in releases if r.raw_payload],
-            "count": len(releases),
-        }
-        log.confidence_score = _calculate_average_confidence(releases)
+        db.execute(
+            update(ExtractionLog)
+            .where(ExtractionLog.id == log.id)
+            .values(
+                status="success",
+                output_payload={
+                    "releases": [r.raw_payload for r in releases if r.raw_payload],
+                    "count": len(releases),
+                },
+                confidence_score=_calculate_average_confidence(releases),
+                finished_at=datetime.now(timezone.utc),
+            )
+        )
         db.commit()
         
         result.success = True
@@ -144,9 +207,21 @@ def extract_from_article(
         
     except Exception as e:
         db.rollback()
-        log.status = "failed"
-        log.error_message = str(e)
-        db.commit()
+        
+        if log and log.id:
+            try:
+                db.execute(
+                    update(ExtractionLog)
+                    .where(ExtractionLog.id == log.id)
+                    .values(
+                        status="failed",
+                        error_message=str(e),
+                        finished_at=datetime.now(timezone.utc),
+                    )
+                )
+                db.commit()
+            except Exception as inner_e:
+                logger.error(f"Failed to update extraction log status: {inner_e}")
         
         result.error_message = str(e)
         logger.exception(f"Extraction failed for article {article_id}: {e}")
@@ -194,6 +269,8 @@ def batch_extract_from_articles(
 
 def get_extraction_stats(db: Session) -> dict[str, Any]:
     from sqlalchemy import func
+    
+    clean_stalled_tasks(db)
     
     total_logs = db.execute(select(func.count(ExtractionLog.id))).scalar() or 0
     success_logs = db.execute(
