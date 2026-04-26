@@ -252,8 +252,12 @@ export const en = {
     statusSkippedDuplicate: "Skipped (Duplicate)",
     statusFailedParse: "Failed (Parse)",
     statusFailedDb: "Failed (Database)",
+    statusFailedEmptyContent: "Failed (Empty Content)",
+    statusFailedTimeout: "Failed (Timeout)",
     statusParsed: "Parsed",
     statusUnknown: "Unknown",
+    emptyContentError: "Article content is empty or contains placeholder like 'no data'",
+    timeoutError: "Task execution timed out",
   },
   reviewTasks: {
     title: "Review Tasks",

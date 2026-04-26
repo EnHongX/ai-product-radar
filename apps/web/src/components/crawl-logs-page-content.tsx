@@ -221,6 +221,10 @@ export function CrawlLogsPageContent() {
         return { label: t.crawlLogs.statusFailedParse, color: "text-red-600", bg: "bg-red-50" };
       case "failed_db":
         return { label: t.crawlLogs.statusFailedDb, color: "text-red-600", bg: "bg-red-50" };
+      case "failed_empty_content":
+        return { label: t.crawlLogs.statusFailedEmptyContent, color: "text-red-600", bg: "bg-red-50" };
+      case "failed_timeout":
+        return { label: t.crawlLogs.statusFailedTimeout, color: "text-red-600", bg: "bg-red-50" };
       case "parsed":
         return { label: t.crawlLogs.statusParsed, color: "text-blue-600", bg: "bg-blue-50" };
       default:

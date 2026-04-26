@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str | None = Field(default=None, description="Base URL for LLM API (for ollama or custom endpoints)")
     LLM_EXTRACTION_PROMPT_VERSION: str = Field(default="v1", description="Prompt version for extraction")
 
+    CRAWL_TIMEOUT_SECONDS: int = Field(default=300, description="Timeout for crawl tasks in seconds")
+    EXTRACTION_TIMEOUT_SECONDS: int = Field(default=120, description="Timeout for extraction tasks in seconds")
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @cached_property

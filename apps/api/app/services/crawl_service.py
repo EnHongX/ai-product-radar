@@ -20,6 +20,36 @@ class ArticleProcessStatus:
     FAILED_PARSE = "failed_parse"
     FAILED_FETCH_URL = "failed_fetch_url"
     FAILED_DB = "failed_db"
+    FAILED_EMPTY_CONTENT = "failed_empty_content"
+    FAILED_TIMEOUT = "failed_timeout"
+
+
+NO_DATA_PATTERNS = [
+    "暂无数据",
+    "暂无内容",
+    "没有数据",
+    "没有内容",
+    "no data",
+    "no content",
+    "not found",
+    "404",
+]
+
+
+def is_empty_or_no_data(content: str | None) -> tuple[bool, str | None]:
+    if not content:
+        return True, "Content is empty or None"
+    
+    content_stripped = content.strip()
+    if not content_stripped:
+        return True, "Content is empty after stripping"
+    
+    content_lower = content_stripped.lower()
+    for pattern in NO_DATA_PATTERNS:
+        if pattern.lower() in content_lower:
+            return True, f"Content contains 'no data' pattern: {pattern}"
+    
+    return False, None
 
 
 class ArticleProcessRecord(NamedTuple):
@@ -678,6 +708,16 @@ def process_articles_with_records(
                 record["status"] = ArticleProcessStatus.SKIPPED_HASH_EXISTS
                 record["reason"] = "Content hash already exists in database"
                 articles_skipped += 1
+                article_records.append(record)
+                continue
+            
+            content = article_data.get("content")
+            is_empty, empty_reason = is_empty_or_no_data(content)
+            if is_empty:
+                record["status"] = ArticleProcessStatus.FAILED_EMPTY_CONTENT
+                record["error_message"] = empty_reason
+                record["error_type"] = "EmptyContentError"
+                articles_failed += 1
                 article_records.append(record)
                 continue
             
