@@ -605,3 +605,200 @@ export async function fetchCrawlLog(id: number): Promise<CrawlLog> {
 
   return response.json();
 }
+
+export type TaskTriggerResponse = {
+  task_id: string;
+  message: string;
+  queued: boolean;
+};
+
+export async function triggerExtractSingle(articleId: number): Promise<TaskTriggerResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/extractions/extract-async`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ article_id: articleId }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to trigger extraction");
+  }
+
+  return response.json();
+}
+
+export async function triggerExtractBatch(articleIds: number[]): Promise<TaskTriggerResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/extractions/batch-extract-async`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ article_ids: articleIds }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to trigger batch extraction");
+  }
+
+  return response.json();
+}
+
+export type ReviewTaskCompany = {
+  id: number;
+  name: string;
+};
+
+export type ReviewTaskSource = {
+  id: number;
+  name: string;
+};
+
+export type ReviewTaskRawArticle = {
+  id: number;
+  title: string;
+  url: string;
+  content: string | null;
+  published_at: string | null;
+  fetched_at: string;
+};
+
+export type ReviewTaskProductRelease = {
+  id: number;
+  release_title: string;
+  release_url: string;
+  release_type: string;
+  summary: string | null;
+  confidence_score: number | null;
+  review_status: string;
+  extraction_payload: Record<string, unknown> | null;
+};
+
+export type ReviewTask = {
+  id: number;
+  raw_article_id: number | null;
+  product_release_id: number | null;
+  status: string;
+  priority: number;
+  assigned_to: string | null;
+  reviewer_notes: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  company: ReviewTaskCompany | null;
+  source: ReviewTaskSource | null;
+  raw_article: ReviewTaskRawArticle | null;
+  product_release: ReviewTaskProductRelease | null;
+};
+
+export type ReviewTaskListItem = {
+  id: number;
+  raw_article_id: number | null;
+  product_release_id: number | null;
+  status: string;
+  priority: number;
+  reviewed_at: string | null;
+  created_at: string;
+  article_title: string | null;
+  article_url: string | null;
+  release_title: string | null;
+  release_url: string | null;
+  company_name: string | null;
+  source_name: string | null;
+  confidence_score: number | null;
+};
+
+export type ReviewStats = {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+};
+
+export type ReviewSubmitRequest = {
+  approved: boolean;
+  notes?: string | null;
+};
+
+export type ReviewSubmitResponse = {
+  success: boolean;
+  message: string;
+  task_id: number;
+};
+
+export async function fetchReviewTasks(
+  status?: string,
+  limit?: number,
+  offset?: number
+): Promise<ReviewTaskListItem[]> {
+  let url = `${API_BASE_URL}/api/review-tasks`;
+  const params = new URLSearchParams();
+  if (status !== undefined) {
+    params.append("status", status);
+  }
+  if (limit !== undefined) {
+    params.append("limit", limit.toString());
+  }
+  if (offset !== undefined) {
+    params.append("offset", offset.toString());
+  }
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch review tasks");
+  }
+
+  return response.json();
+}
+
+export async function fetchReviewStats(): Promise<ReviewStats> {
+  const response = await fetch(`${API_BASE_URL}/api/review-tasks/stats`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch review stats");
+  }
+
+  return response.json();
+}
+
+export async function fetchReviewTask(id: number): Promise<ReviewTask> {
+  const response = await fetch(`${API_BASE_URL}/api/review-tasks/${id}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch review task");
+  }
+
+  return response.json();
+}
+
+export async function submitReview(
+  taskId: number,
+  request: ReviewSubmitRequest
+): Promise<ReviewSubmitResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/review-tasks/${taskId}/submit`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to submit review");
+  }
+
+  return response.json();
+}

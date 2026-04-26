@@ -8,6 +8,7 @@ from app.routers.company_types import router as company_types_router
 from app.routers.extractions import router as extractions_router
 from app.routers.health import router as health_router
 from app.routers.raw_articles import router as raw_articles_router
+from app.routers.review_tasks import router as review_tasks_router
 from app.routers.sources import router as sources_router
 from app.routers.source_types import router as source_types_router
 from app.routers.stats import router as stats_router
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(source_types_router, prefix="/api")
     app.include_router(raw_articles_router, prefix="/api")
     app.include_router(extractions_router, prefix="/api")
+    app.include_router(review_tasks_router, prefix="/api")
     return app
 
 

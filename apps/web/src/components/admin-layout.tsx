@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Database, Tags, Layers, FileText, History } from "lucide-react";
+import { Building2, Database, Tags, Layers, FileText, History, CheckSquare } from "lucide-react";
 
 import { Header } from "@/components/header";
 import { useLanguage } from "@/i18n";
@@ -51,6 +51,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       label: t.admin.crawlLogs,
       icon: History,
       active: pathname === "/admin/crawl-logs",
+    },
+    {
+      href: "/admin/review-tasks",
+      label: t.admin.reviewTasks,
+      icon: CheckSquare,
+      active: pathname === "/admin/review-tasks",
     },
   ];
 

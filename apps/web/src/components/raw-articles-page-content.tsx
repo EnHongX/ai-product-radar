@@ -1,12 +1,21 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Eye, Trash2, ExternalLink, X, CheckSquare, Square } from "lucide-react";
+import { Eye, Trash2, ExternalLink, X, CheckSquare, Square, Sparkles } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin-layout";
 import { useLanguage } from "@/i18n";
 import type { RawArticle, RawArticleDetail, Company, Source } from "@/lib/api";
-import { fetchRawArticles, fetchRawArticle, deleteRawArticle, batchDeleteRawArticles, fetchCompanies, fetchSources } from "@/lib/api";
+import {
+  fetchRawArticles,
+  fetchRawArticle,
+  deleteRawArticle,
+  batchDeleteRawArticles,
+  fetchCompanies,
+  fetchSources,
+  triggerExtractSingle,
+  triggerExtractBatch,
+} from "@/lib/api";
 
 export function RawArticlesPageContent() {
   const { t } = useLanguage();
@@ -26,6 +35,8 @@ export function RawArticlesPageContent() {
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [batchDeleteLoading, setBatchDeleteLoading] = useState(false);
+  const [batchExtractLoading, setBatchExtractLoading] = useState(false);
+  const [extractingId, setExtractingId] = useState<number | null>(null);
 
   const loadData = async () => {
     try {
@@ -131,6 +142,48 @@ export function RawArticlesPageContent() {
     }
   };
 
+  const handleExtractSingle = async (article: RawArticle) => {
+    if (!window.confirm(t.rawArticles.confirmExtract)) {
+      return;
+    }
+
+    try {
+      setExtractingId(article.id);
+      await triggerExtractSingle(article.id);
+      setSuccessMessage(t.rawArticles.extractSuccess);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to trigger extraction");
+    } finally {
+      setExtractingId(null);
+    }
+  };
+
+  const handleBatchExtract = async () => {
+    if (selectedIds.size === 0) {
+      setError(t.rawArticles.noSelectionExtract);
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    const confirmMessage = t.rawArticles.confirmBatchExtract.replace("{count}", selectedIds.size.toString());
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setBatchExtractLoading(true);
+      await triggerExtractBatch(Array.from(selectedIds));
+      setSuccessMessage(t.rawArticles.batchExtractSuccess);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      setSelectedIds(new Set());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to trigger batch extraction");
+    } finally {
+      setBatchExtractLoading(false);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
     return new Date(dateString).toLocaleString();
@@ -174,6 +227,14 @@ export function RawArticlesPageContent() {
               <span className="text-sm text-muted">
                 {t.rawArticles.selected}: <span className="font-medium text-ink">{selectedIds.size}</span> {t.rawArticles.items}
               </span>
+              <button
+                onClick={handleBatchExtract}
+                disabled={batchExtractLoading}
+                className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Sparkles className="h-4 w-4" />
+                {batchExtractLoading ? "..." : t.rawArticles.batchExtract}
+              </button>
               <button
                 onClick={handleBatchDelete}
                 disabled={batchDeleteLoading}
@@ -327,6 +388,14 @@ export function RawArticlesPageContent() {
                           title={t.rawArticles.view}
                         >
                           <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleExtractSingle(article)}
+                          disabled={extractingId === article.id}
+                          className="rounded p-1.5 text-muted hover:text-purple-600 hover:bg-purple-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={t.rawArticles.extract}
+                        >
+                          <Sparkles className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteClick(article)}
